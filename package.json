@@ -1,0 +1,9 @@
+{
+  "name": "household-budget-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "ioredis": "^5.0.0"
+  }
+}
