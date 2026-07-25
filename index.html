@@ -13,14 +13,14 @@
   --surface:#FFFFFF;
   --ink:#161A18;
   --ink-2:#4A544D;
-  --ink-3:#7C857F;
+  --ink-3:#69716C;
   --line:#E4E8E3;
   --line-2:#F0F2EF;
   --pos:#15654A;
   --pos-bg:#E6F1EC;
   --neg:#9A3B38;
   --neg-bg:#F8E9E8;
-  --warn:#A8741A;
+  --warn:#936517;
   --warn-bg:#FBF2E1;
   --accent:#2C3E4F;
   --r-lg:18px;
@@ -94,7 +94,7 @@ h2.ttl .sub{font-weight:400;color:var(--ink-3);font-size:11.5px;margin-right:6px
 .bfill{height:100%;border-radius:3px;}
 .blink{background:none;border:none;color:var(--accent);font-size:11px;text-decoration:underline;cursor:pointer;font-family:inherit;padding:0;}
 .bedit{color:var(--ink-3);font-size:11.5px;text-decoration:underline;cursor:pointer;}
-.bnum{width:88px;padding:4px 7px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:13px;font-family:var(--f-num);}
+.bnum{width:96px;padding:4px 7px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:16px;font-family:var(--f-num);}
 
 /* ---------- trend ---------- */
 .tr{display:flex;align-items:flex-end;gap:7px;margin-bottom:10px;}
@@ -153,10 +153,10 @@ input.num{font-family:var(--f-num);}
 .meta-r:last-child{margin-bottom:0;}
 .meta-k{color:var(--ink-3);flex-shrink:0;}
 .meta-v{font-weight:600;text-align:left;}
-.meta input{width:132px;padding:6px 8px;font-size:12.5px;border-radius:var(--r-sm);}
+.meta input{width:142px;padding:6px 8px;font-size:16px;border-radius:var(--r-sm);}
 .scroll{max-height:330px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .r.dup{opacity:.5;}
-.csel{font-size:11.5px;padding:5px 6px;border-radius:var(--r-sm);max-width:104px;}
+.csel{font-size:16px;padding:5px 6px;border-radius:var(--r-sm);max-width:112px;}
 .chk{width:17px;height:17px;flex-shrink:0;}
 
 /* ---------- tabs ---------- */
@@ -295,7 +295,7 @@ input.num{font-family:var(--f-num);}
         <div class="card" id="impCard">
           <h2 class="ttl">ייבוא מקובץ אשראי</h2>
           <p class="hint">קובץ xlsx או csv מכאל, MAX או ישראכרט. הקובץ נקרא בדפדפן ולא נשלח לשום מקום.</p>
-          <input type="file" id="file" accept=".xlsx,.xls,.csv" style="font-size:13px;padding:9px">
+          <input type="file" id="file" accept=".xlsx,.xls,.csv" style="font-size:16px;padding:9px">
           <p class="blank" id="impMsg" style="display:none"></p>
           <div id="prev" style="display:none;margin-top:12px">
             <div class="meta" id="prevMeta"></div>
@@ -1117,7 +1117,7 @@ function renderCards(){
     const used=data.transactions.filter(t=>t.cardLast4===c.last4).length;
     const d=document.createElement('div'); d.className='r';
     d.innerHTML=`<div class="r-mid" style="flex:0 0 auto"><span class="r-t">${esc(c.company||'כרטיס')} ····${c.last4}</span><span class="r-s">${used} תנועות</span></div>
-      <input type="text" class="lb" placeholder="כינוי" value="${esc(c.label||'')}" style="flex:1;padding:6px 8px;font-size:12.5px;border-radius:9px">
+      <input type="text" class="lb" placeholder="כינוי" value="${esc(c.label||'')}" style="flex:1;padding:6px 8px;font-size:16px;border-radius:9px">
       <button class="mini" type="button" aria-label="הסר">✕</button>`;
     const i=d.querySelector('.lb');
     i.onchange=()=>{ c.label=i.value.trim(); if(c.label) data.cardLabels[c.last4]=c.label; else delete data.cardLabels[c.last4]; save(); renderAll(); };
