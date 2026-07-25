@@ -465,6 +465,7 @@ let data = emptyData();
 let curM='', addKind='expense', recKind='expense', fType='all', fCard='all', q='', lim=20;
 let pendImport=[], pendMeta=null, chat=[], appCode='', codeRequired=true, saving=false, queued=false;
 let allowed=[];
+let loaded=false;   /* never write to the server before a successful read */
 try{ appCode = localStorage.getItem('budget-app-code')||''; }catch(e){}
 
 function emptyData(){ return {transactions:[],budgets:{},recurring:[],cardLabels:{},importHistory:[],uploadReminderDismissed:{},cards:[],customCats:[],deleted:[]}; }
@@ -546,6 +547,14 @@ async function load(){
     codeRequired=true; showLock(had); return;
   }
   codeRequired=!!appCode;
+  if(r.status!==200){
+    document.getElementById('boot').style.display='block';
+    document.getElementById('app').style.display='none';
+    document.getElementById('boot').innerHTML='השרת החזיר שגיאה '+r.status+' בטעינת הנתונים.<br>'
+      +'<span style="font-size:12px">הנתונים שלכם לא נפגעו — רק הקריאה נכשלה.</span><br><br>'
+      +'<button class="go" style="max-width:200px;margin:0 auto" onclick="location.reload()">נסו שוב</button>';
+    return;
+  }
   let j={}; try{ j=await r.json(); }catch(e){}
   if(j && j.error==='no_database'){ document.getElementById('boot').textContent='מסד הנתונים לא מחובר לאתר.'; return; }
   try{ data = normalize(j && j.value ? JSON.parse(j.value) : null); }catch(e){ data=emptyData(); }
@@ -553,6 +562,7 @@ async function load(){
     data.cards=[{last4:'8622',company:'MAX',label:''},{last4:'5084',company:'כאל',label:''},{last4:'8318',company:'ישראכרט',label:''},{last4:'0682',company:'ישראכרט',label:''}]
       .map(c=>Object.assign(c,{label:(data.cardLabels||{})[c.last4]||''}));
   }
+  loaded=true;
   const added=applyRec();
   document.getElementById('boot').style.display='none';
   document.getElementById('lock').style.display='none';
@@ -564,15 +574,35 @@ async function load(){
 }
 
 async function save(){
+  if(!loaded) return;                 /* guard: nothing was ever read, so nothing may be written */
   if(saving){ queued=true; return; }
   saving=true;
+  let good=false;
   try{
     const r=await api('/api/data');
-    if(r.status===200){ const j=await r.json(); if(j&&j.value){ try{ data=merge(normalize(JSON.parse(j.value)),data); }catch(e){} } }
-    await api('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-  }catch(e){ console.error('save failed',e); }
+    if(r.status!==200) throw new Error('pre-read failed with '+r.status);
+    const j=await r.json();
+    if(j&&j.value){ try{ data=merge(normalize(JSON.parse(j.value)),data); }catch(e){} }
+    const w=await api('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    if(w.status!==200) throw new Error('write failed with '+w.status);
+    good=true;
+  }catch(e){
+    console.error('save aborted:',e.message);
+  }
+  try{ saveWarn(!good); }catch(e){}   /* UI feedback must never affect the save verdict */
   saving=false;
   if(queued){ queued=false; save(); }
+}
+
+function saveWarn(on){
+  let el=document.getElementById('saveWarn');
+  if(!on){ if(el&&el.parentNode) el.parentNode.removeChild(el); return; }
+  if(el) return;
+  el=document.createElement('div');
+  el.id='saveWarn';
+  el.style.cssText='position:fixed;left:0;right:0;bottom:var(--tabh);z-index:40;background:var(--neg);color:#fff;font-size:12.5px;padding:9px 14px;text-align:center';
+  el.textContent='השינוי האחרון לא נשמר בשרת. בדקו חיבור ורעננו — הנתונים בשרת לא נדרסו.';
+  document.body.appendChild(el);
 }
 
 const GCLIENT='461926098122-3ra07fpcd15te4gt4a5b0ij4d5g5ct7m.apps.googleusercontent.com';
