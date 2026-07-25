@@ -194,10 +194,14 @@ input.num{font-family:var(--f-num);}
   <div class="lock" id="lock" style="display:none">
     <div class="card">
       <div class="brand" style="text-align:center;margin-bottom:4px">תקציב הבית</div>
-      <p class="hint" style="text-align:center">הזינו את קוד הגישה</p>
-      <input type="password" id="lockIn" inputmode="numeric" autocomplete="current-password">
-      <button class="go" id="lockGo" type="button">כניסה</button>
-      <p class="blank" id="lockErr" style="display:none;color:var(--neg)">קוד שגוי, נסו שוב</p>
+      <p class="hint" style="text-align:center">התחברו כדי להמשיך</p>
+      <div id="gbtn" style="display:flex;justify-content:center;margin-bottom:6px"></div>
+      <div id="codeBox">
+        <p class="hint" style="text-align:center;font-size:11.5px;margin:10px 0 8px">או הזינו קוד גישה</p>
+        <input type="password" id="lockIn" inputmode="numeric" autocomplete="current-password">
+        <button class="go" id="lockGo" type="button">כניסה</button>
+      </div>
+      <p class="blank" id="lockErr" style="display:none;color:var(--neg)"></p>
     </div>
   </div>
 
@@ -420,6 +424,7 @@ input.num{font-family:var(--f-num);}
   </div>
 </div>
 
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* ================= constants ================= */
@@ -540,7 +545,7 @@ async function load(){
   document.getElementById('boot').style.display='none';
   document.getElementById('lock').style.display='none';
   document.getElementById('app').style.display='block';
-  document.getElementById('guard').textContent = codeRequired?'מוגן בקוד':'⚠ פתוח';
+  showWho();
   renderAll();
   if(added) msg('recMsg','נוספו '+added+' תנועות קבועות לחודש הנוכחי');
 }
@@ -557,12 +562,44 @@ async function save(){
   if(queued){ queued=false; save(); }
 }
 
+const GCLIENT='461926098122-3ra07fpcd15te4gt4a5b0ij4d5g5ct7m.apps.googleusercontent.com';
+let gTries=0;
+function mountGoogle(){
+  const box=document.getElementById('gbtn');
+  if(!(window.google&&google.accounts&&google.accounts.id)){
+    if(gTries++<25) return setTimeout(mountGoogle,240);
+    box.innerHTML='<span class="hint" style="text-align:center">התחברות Google לא זמינה כרגע</span>';
+    return;
+  }
+  try{
+    google.accounts.id.initialize({client_id:GCLIENT,callback:onGoogle});
+    google.accounts.id.renderButton(box,{theme:'outline',size:'large',text:'signin_with',shape:'pill',locale:'he',width:270});
+  }catch(e){ box.innerHTML='<span class="hint">'+esc(e.message)+'</span>'; }
+}
+async function onGoogle(resp){
+  const err=document.getElementById('lockErr');
+  err.style.display='none';
+  try{
+    const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credential:resp.credential})});
+    const j=await r.json();
+    if(j&&j.ok){
+      document.getElementById('lock').style.display='none';
+      document.getElementById('boot').style.display='block';
+      load();
+    } else { err.textContent=(j&&j.message)||'ההתחברות נכשלה'; err.style.display='block'; }
+  }catch(e){ err.textContent='שגיאה: '+e.message; err.style.display='block'; }
+}
 function showLock(bad){
   document.getElementById('boot').style.display='none';
   document.getElementById('app').style.display='none';
   document.getElementById('lock').style.display='block';
-  document.getElementById('lockErr').style.display=bad?'block':'none';
-  const i=document.getElementById('lockIn'); i.value=''; i.focus();
+  const e=document.getElementById('lockErr');
+  if(bad){ e.textContent='קוד שגוי, נסו שוב'; e.style.display='block'; } else e.style.display='none';
+  document.getElementById('lockIn').value='';
+  fetch('/api/auth').then(r=>r.json()).then(j=>{
+    document.getElementById('codeBox').style.display=(j&&j.codeFallback===false)?'none':'block';
+  }).catch(()=>{});
+  mountGoogle();
 }
 function sendCode(){
   const v=document.getElementById('lockIn').value.trim(); if(!v) return;
@@ -571,10 +608,21 @@ function sendCode(){
   document.getElementById('boot').style.display='block';
   load();
 }
-function logout(){
+async function logout(){
   if(!confirm('להתנתק מהמכשיר הזה?')) return;
   appCode=''; try{ localStorage.removeItem('budget-app-code'); }catch(e){}
+  try{ await fetch('/api/auth',{method:'DELETE'}); }catch(e){}
+  try{ if(window.google&&google.accounts&&google.accounts.id) google.accounts.id.disableAutoSelect(); }catch(e){}
   location.reload();
+}
+async function showWho(){
+  try{
+    const r=await fetch('/api/auth');
+    const j=await r.json();
+    if(j&&j.signedInAs){ document.getElementById('guard').textContent=j.signedInAs.split('@')[0]; return; }
+    if(j&&!j.codeFallback&&j.google){ document.getElementById('guard').textContent='מוגן'; return; }
+  }catch(e){}
+  document.getElementById('guard').textContent = codeRequired?'מוגן בקוד':'⚠ פתוח';
 }
 function msg(id,t){ const e=document.getElementById(id); e.textContent=t; e.style.display=t?'block':'none'; }
 

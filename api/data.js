@@ -1,19 +1,8 @@
+import { authorized } from './_auth.js';
 import Redis from 'ioredis';
 
-const KEY = 'household-budget-v1';
-
-function checkAuth(req, res){
-  const code = process.env.APP_CODE;
-  if(!code) return true;
-  if(req.headers['x-app-code'] !== code){
-    res.status(401).json({ error:'unauthorized' });
-    return false;
-  }
-  return true;
-}
-
 export default async function handler(req, res) {
-  if(!checkAuth(req, res)) return;
+  if(!authorized(req)){ res.status(401).json({ error:'unauthorized' }); return; }
   const connStr = process.env.REDIS_URL;
 
   if (!connStr) {

@@ -1,9 +1,7 @@
+import { authorized } from './_auth.js';
+
 export default async function handler(req, res) {
-  const code = process.env.APP_CODE;
-  if (code && req.headers['x-app-code'] !== code) {
-    res.status(401).json({ error: 'unauthorized' });
-    return;
-  }
+  if (!authorized(req)) { res.status(401).json({ error: 'unauthorized' }); return; }
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'method_not_allowed' });
     return;
