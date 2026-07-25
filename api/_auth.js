@@ -1,6 +1,15 @@
 import crypto from 'crypto';
 
 export const COOKIE = 'bh_session';
+
+/* No SESSION_SECRET env var needed: derive a stable key from REDIS_URL,
+   which is already configured, already secret, and never leaves the server. */
+export function sessionSecret() {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  const base = process.env.REDIS_URL;
+  if (!base) return null;
+  return crypto.createHash('sha256').update('bh-session|' + base).digest('hex');
+}
 export const MAXAGE = 60 * 60 * 24 * 30; // 30 days
 
 export function signSession(payload, secret) {
@@ -31,10 +40,9 @@ export function readSession(req, secret) {
 /* A request is allowed if it carries a valid Google session cookie,
    or the shared access code, or if no protection is configured at all. */
 export function authorized(req) {
-  const secret = process.env.SESSION_SECRET;
+  const secret = sessionSecret();
   if (secret && readSession(req, secret)) return true;
   const code = process.env.APP_CODE;
   if (code && req.headers['x-app-code'] === code) return true;
-  if (!code && !process.env.ALLOWED_EMAILS) return true;
   return false;
 }

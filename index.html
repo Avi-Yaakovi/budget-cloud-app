@@ -400,6 +400,17 @@ input.num{font-family:var(--f-num);}
         </div>
 
         <div class="card">
+          <h2 class="ttl">מי יכול להיכנס</h2>
+          <p class="hint">כתובות Google שמורשות להתחבר לאפליקציה. שינוי נשמר מיד ונכנס לתוקף בהתחברות הבאה.</p>
+          <div class="list" id="allowList"></div>
+          <p class="blank" id="allowNo" style="display:none">עוד לא הוגדרו כתובות. עד אז ההתחברות עם Google לא זמינה.</p>
+          <div class="rule"></div>
+          <input type="email" id="newMail" placeholder="name@gmail.com" style="margin-bottom:8px">
+          <button class="go ghost sm" id="addMail" type="button">הוסף כתובת</button>
+          <p class="blank" id="allowMsg" style="display:none"></p>
+        </div>
+
+        <div class="card">
           <h2 class="ttl">גיבוי ושחזור</h2>
           <p class="hint">הנתונים בענן. כדאי להוריד גיבוי מדי פעם — הקובץ נשמר אצלכם וניתן לשחזור מלא ממנו.</p>
           <div class="ed-a">
@@ -453,6 +464,7 @@ const RULES = [
 let data = emptyData();
 let curM='', addKind='expense', recKind='expense', fType='all', fCard='all', q='', lim=20;
 let pendImport=[], pendMeta=null, chat=[], appCode='', codeRequired=true, saving=false, queued=false;
+let allowed=[];
 try{ appCode = localStorage.getItem('budget-app-code')||''; }catch(e){}
 
 function emptyData(){ return {transactions:[],budgets:{},recurring:[],cardLabels:{},importHistory:[],uploadReminderDismissed:{},cards:[],customCats:[],deleted:[]}; }
@@ -547,6 +559,7 @@ async function load(){
   document.getElementById('app').style.display='block';
   showWho();
   renderAll();
+  loadAllowed();
   if(added) msg('recMsg','נוספו '+added+' תנועות קבועות לחודש הנוכחי');
 }
 
@@ -624,13 +637,51 @@ async function showWho(){
   }catch(e){}
   document.getElementById('guard').textContent = codeRequired?'מוגן בקוד':'⚠ פתוח';
 }
+async function loadAllowed(){
+  try{
+    const r=await api('/api/auth'); const j=await r.json();
+    allowed=Array.isArray(j.allowed)?j.allowed:[];
+  }catch(e){ allowed=[]; }
+  renderAllowed();
+}
+function renderAllowed(){
+  const box=document.getElementById('allowList'), no=document.getElementById('allowNo');
+  box.innerHTML='';
+  if(!allowed.length){ no.style.display='block'; return; }
+  no.style.display='none';
+  allowed.forEach(function(m){
+    const d=document.createElement('div'); d.className='r';
+    d.innerHTML='<div class="r-mid"><span class="r-t">'+esc(m)+'</span></div><button class="mini" type="button" aria-label="הסר">✕</button>';
+    d.querySelector('.mini').onclick=function(){
+      if(!confirm('להסיר את '+m+'?\nהוא לא יוכל להתחבר יותר.')) return;
+      allowed=allowed.filter(function(x){return x!==m;});
+      saveAllowed();
+    };
+    box.appendChild(d);
+  });
+}
+async function saveAllowed(){
+  try{
+    const r=await api('/api/auth',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({allowed:allowed})});
+    const j=await r.json();
+    if(j&&j.ok){ allowed=j.allowed||[]; renderAllowed(); msg('allowMsg','נשמר'); }
+    else msg('allowMsg','השמירה נכשלה');
+  }catch(e){ msg('allowMsg','שגיאה: '+e.message); }
+}
+function addMail(){
+  const el=document.getElementById('newMail'), v=el.value.trim().toLowerCase();
+  if(v.indexOf('@')<1){ el.focus(); return; }
+  if(allowed.indexOf(v)!==-1){ msg('allowMsg','הכתובת כבר ברשימה'); return; }
+  allowed.push(v); el.value=''; saveAllowed();
+}
+
 function msg(id,t){ const e=document.getElementById(id); e.textContent=t; e.style.display=t?'block':'none'; }
 
 /* ================= render ================= */
 function renderAll(){
   renderMonth(); renderHero(); renderGap(); renderRemind(); renderTrend();
   renderSplit(); renderByCard(); renderBudgets(); renderTx();
-  renderRec(); renderHist(); renderCards(); renderCats(); fillCatSelects();
+  renderRec(); renderHist(); renderCards(); renderCats(); fillCatSelects(); renderAllowed();
 }
 
 function setTab(p){
@@ -1375,6 +1426,8 @@ function bind(){
   document.getElementById('rsLbl').onclick=()=>document.getElementById('rsFile').click();
   document.getElementById('rsFile').onchange=restore;
   document.getElementById('wipe').onclick=wipeAll;
+  document.getElementById('addMail').onclick=addMail;
+  document.getElementById('newMail').onkeydown=e=>{ if(e.key==='Enter'){e.preventDefault();addMail();} };
 }
 
 function init(){

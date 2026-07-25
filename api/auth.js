@@ -1,20 +1,57 @@
 import { OAuth2Client } from 'google-auth-library';
-import { signSession, readSession, COOKIE, MAXAGE } from './_auth.js';
+import Redis from 'ioredis';
+import { signSession, readSession, authorized, sessionSecret, COOKIE, MAXAGE } from './_auth.js';
+
+const ALLOW_KEY = 'household-budget-allowed';
+
+async function withRedis(fn) {
+  const url = process.env.REDIS_URL;
+  if (!url) return null;
+  const r = new Redis(url, { maxRetriesPerRequest: 2, lazyConnect: true });
+  try { await r.connect(); return await fn(r); }
+  finally { try { r.disconnect(); } catch (e) {} }
+}
+
+async function getAllowList() {
+  const fromEnv = (process.env.ALLOWED_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  let stored = [];
+  try {
+    const raw = await withRedis(r => r.get(ALLOW_KEY));
+    if (raw) stored = JSON.parse(raw).map(s => String(s).trim().toLowerCase()).filter(Boolean);
+  } catch (e) {}
+  return Array.from(new Set(fromEnv.concat(stored)));
+}
 
 const CLIENT_ID = '461926098122-3ra07fpcd15te4gt4a5b0ij4d5g5ct7m.apps.googleusercontent.com';
 
 export default async function handler(req, res) {
-  const secret = process.env.SESSION_SECRET;
-  const allow = process.env.ALLOWED_EMAILS;
+  const secret = sessionSecret();
 
   if (req.method === 'GET') {
     const s = secret ? readSession(req, secret) : null;
+    const list = await getAllowList();
     res.status(200).json({
-      google: !!(secret && allow),
+      google: !!(secret && list.length),
       clientId: CLIENT_ID,
       codeFallback: !!process.env.APP_CODE,
-      signedInAs: s ? s.email : null
+      signedInAs: s ? s.email : null,
+      allowed: authorized(req) ? list : undefined
     });
+    return;
+  }
+
+  /* manage the allow-list — only for someone already authenticated */
+  if (req.method === 'PUT') {
+    if (!authorized(req)) { res.status(401).json({ error: 'unauthorized' }); return; }
+    let body = {};
+    try { body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {}); } catch (e) {}
+    const list = Array.isArray(body.allowed)
+      ? Array.from(new Set(body.allowed.map(x => String(x).trim().toLowerCase()).filter(x => x.indexOf('@') > 0))).slice(0, 20)
+      : [];
+    try {
+      await withRedis(r => r.set(ALLOW_KEY, JSON.stringify(list)));
+      res.status(200).json({ ok: true, allowed: list });
+    } catch (e) { res.status(500).json({ error: 'save_failed', message: String(e) }); }
     return;
   }
 
@@ -26,9 +63,10 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') { res.status(405).json({ error: 'method_not_allowed' }); return; }
 
-  if (!secret || !allow) {
+  const list = await getAllowList();
+  if (!secret || !list.length) {
     res.status(200).json({ error: 'not_configured',
-      message: 'התחברות עם Google עוד לא הוגדרה. חסרים משתני הסביבה ALLOWED_EMAILS ו-SESSION_SECRET.' });
+      message: 'עוד לא הוגדרו כתובות מייל מורשות. היכנסו עם קוד הגישה, ובלשונית "עוד" הוסיפו את המיילים.' });
     return;
   }
 
@@ -41,7 +79,6 @@ export default async function handler(req, res) {
     const ticket = await client.verifyIdToken({ idToken: body.credential, audience: CLIENT_ID });
     const p = ticket.getPayload();
     const email = String(p.email || '').toLowerCase();
-    const list = allow.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
     if (!p.email_verified || list.indexOf(email) === -1) {
       res.status(403).json({ error: 'not_allowed',
         message: 'החשבון ' + (email || '') + ' אינו מורשה לגשת לאפליקציה.' });
