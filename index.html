@@ -522,7 +522,7 @@ function normalize(p){
 
 function merge(s,l){
   const o=emptyData();
-  o.deleted=Array.from(new Set([].concat(s.deleted||[],l.deleted||[])));
+  o.deleted=Array.from(new Set([].concat(s.deleted||[],l.deleted||[]))).slice(-800);
   const gone=new Set(o.deleted);
   const byId=(a,b)=>{ const m=new Map(); (a||[]).forEach(x=>m.set(x.id,x)); (b||[]).forEach(x=>m.set(x.id,x)); return Array.from(m.values()); };
   o.transactions=byId(s.transactions,l.transactions).filter(t=>!gone.has(t.id));
@@ -911,7 +911,8 @@ function setBudget(c,v){ data.budgets[c]=v>0?v:0; save(); renderBudgets(); }
 /* ================= transactions ================= */
 function renderTx(){
   fillCardFilter();
-  let tx=mTx(curM);
+  const wide=!!q;                       /* a search should look everywhere, not only this month */
+  let tx=wide?data.transactions.slice():mTx(curM);
   if(fType==='refund') tx=tx.filter(isRef);
   else if(fType==='expense') tx=tx.filter(t=>t.type==='expense'&&t.amount>=0);
   else if(fType==='income') tx=tx.filter(t=>t.type==='income');
@@ -920,8 +921,8 @@ function renderTx(){
   tx=tx.slice().sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(a.id)));
   const box=document.getElementById('txList'), no=document.getElementById('txNo'), more=document.getElementById('more');
   box.innerHTML=''; more.style.display='none';
-  document.getElementById('txCount').textContent=tx.length?tx.length+' בחודש זה':'';
-  if(!tx.length){ no.style.display='block'; no.textContent=q?'לא נמצאו תנועות תואמות':'אין תנועות בחודש הזה'; return; }
+  document.getElementById('txCount').textContent=tx.length?(tx.length+(wide?' בכל החודשים':' בחודש זה')):'';
+  if(!tx.length){ no.style.display='block'; no.textContent=q?'לא נמצאו תנועות תואמות באף חודש':'אין תנועות בחודש הזה'; return; }
   no.style.display='none';
   if(tx.length>lim){ more.style.display='block'; more.textContent=`הצג עוד (${tx.length-lim} מתוך ${tx.length})`; }
   const cats=expCats();
@@ -929,7 +930,7 @@ function renderTx(){
     const ref=isRef(t), inc=t.type==='income';
     const col=inc?'var(--pos)':COLORS[Math.max(0,cats.indexOf(t.category))%COLORS.length];
     const r=document.createElement('div'); r.className='r';
-    const bits=[esc(t.category),dLabel(t.date)];
+    const bits=[esc(t.category), wide?(dLabel(t.date)+'.'+t.date.slice(2,4)):dLabel(t.date)];
     if(t.cardLast4) bits.push('····'+t.cardLast4);
     if(t.recurringId) bits.push('קבוע');
     r.innerHTML=`<span class="dot" style="background:${col}"></span>
@@ -1011,12 +1012,22 @@ function fillCardFilter(){
 }
 
 /* ================= recurring ================= */
+/* Deterministic id: if two devices generate this month's charge at the same
+   moment they produce the identical id, so the merge collapses them into one. */
+function recId(rule,k){ return 'rec_'+rule.id+'_'+k; }
+function recRow(rule,k){
+  const [y,m]=k.split('-').map(Number);
+  return { id:recId(rule,k), type:rule.type, amount:rule.amount, category:rule.category,
+           note:rule.note, date:`${k}-${pad(Math.min(rule.day,dim(y,m)))}`, recurringId:rule.id };
+}
+
 function applyRec(){
   const k=realM(); let n=0;
+  const gone=new Set(data.deleted||[]);
   (data.recurring||[]).forEach(r=>{
+    if(gone.has(recId(r,k))) return;                                  /* respect a manual delete */
     if(data.transactions.some(t=>t.recurringId===r.id&&mk(t.date)===k)) return;
-    const [y,m]=k.split('-').map(Number);
-    data.transactions.push({id:uid(),type:r.type,amount:r.amount,category:r.category,note:r.note,date:`${k}-${pad(Math.min(r.day,dim(y,m)))}`,recurringId:r.id});
+    data.transactions.push(recRow(r,k));
     n++;
   });
   if(n) save();
@@ -1072,7 +1083,7 @@ function backfill(){
   if(!plan.length){ msg('recMsg','כל התנועות הקבועות כבר קיימות בכל החודשים'); return; }
   const touched=Array.from(new Set(plan.map(p=>mk(p.date)))).sort().map(mLabel).join(', ');
   if(!confirm('להוסיף '+plan.length+' תנועות לחודשים: '+touched+'?\nעשו זאת רק אם התשלומים באמת בוצעו אז.')) return;
-  plan.forEach(p=>data.transactions.push({id:uid(),type:p.r.type,amount:p.r.amount,category:p.r.category,note:p.r.note,date:p.date,recurringId:p.r.id}));
+  plan.forEach(p=>data.transactions.push(recRow(p.r,mk(p.date))));
   save(); renderAll(); msg('recMsg','נוספו '+plan.length+' תנועות');
 }
 
@@ -1373,7 +1384,9 @@ function ctx(){
   const b=Object.entries(data.budgets||{}).filter(([,v])=>v>0);
   if(b.length){ s+='\nתקציבים חודשיים:\n'; b.forEach(([c,v])=>s+=`  ${c}: ${Math.round(v)}\n`); }
   if((data.recurring||[]).length){ s+='\nתנועות קבועות:\n'; data.recurring.forEach(r=>s+=`  ${r.note||r.category} ${r.type==='income'?'+':'-'}${Math.round(r.amount)} (${r.category}, כל ${r.day})\n`); }
-  s+=`\nתנועות ב${mLabel(curM)}:\n`;
+  const allM=Array.from(new Set(data.transactions.map(t=>mk(t.date)))).sort();
+  s+=`\nסך הכל ${data.transactions.length} תנועות, מ${allM.length?mLabel(allM[0]):'—'} ואילך.\n`;
+  s+=`\nתנועות ב${mLabel(curM)} (החודש המוצג):\n`;
   mTx(curM).slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>{
     s+=`${t.date} | ${t.note||t.category} | ${t.category} | ${t.type==='income'?'+':(t.amount<0?'החזר +':'-')}${Math.abs(Math.round(t.amount))}\n`;
   });
