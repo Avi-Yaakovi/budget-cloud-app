@@ -606,6 +606,16 @@ function saveWarn(on){
 }
 
 const GCLIENT='461926098122-3ra07fpcd15te4gt4a5b0ij4d5g5ct7m.apps.googleusercontent.com';
+const GORIGIN='https://budget-cloud-app.vercel.app';
+
+function gDiag(html){
+  const box=document.getElementById('gbtn');
+  let d=document.getElementById('gdiag');
+  if(!d){ d=document.createElement('div'); d.id='gdiag';
+    d.style.cssText='margin-top:10px;font-size:11.5px;line-height:1.6;color:var(--neg);text-align:center';
+    box.parentNode.appendChild(d); }
+  d.innerHTML=html;
+}
 let gTries=0;
 function mountGoogle(){
   const box=document.getElementById('gbtn');
@@ -614,23 +624,38 @@ function mountGoogle(){
     box.innerHTML='<span class="hint" style="text-align:center">התחברות Google לא זמינה כרגע</span>';
     return;
   }
+  if(location.origin!==GORIGIN){
+    box.innerHTML='';
+    gDiag('<b>הכתובת הזו לא מאושרת ב-Google.</b><br>אתם נמצאים ב:<br><span style="direction:ltr;display:inline-block">'
+      +esc(location.origin)+'</span><br>צריך להיכנס דרך:<br><a href="'+GORIGIN+'" style="direction:ltr;display:inline-block">'
+      +GORIGIN+'</a>');
+    return;
+  }
   try{
-    google.accounts.id.initialize({client_id:GCLIENT,callback:onGoogle});
+    google.accounts.id.initialize({
+      client_id:GCLIENT,
+      callback:onGoogle,
+      error_callback:function(err){ gDiag('Google החזיר שגיאה: '+esc((err&&(err.type||err.message))||'לא ידועה')); }
+    });
     google.accounts.id.renderButton(box,{theme:'outline',size:'large',text:'signin_with',shape:'pill',locale:'he',width:270});
-  }catch(e){ box.innerHTML='<span class="hint">'+esc(e.message)+'</span>'; }
+  }catch(e){ gDiag('שגיאה בטעינת Google: '+esc(e.message)); }
 }
 async function onGoogle(resp){
-  const err=document.getElementById('lockErr');
-  err.style.display='none';
+  gDiag('מאמת מול השרת…');
   try{
-    const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credential:resp.credential})});
-    const j=await r.json();
-    if(j&&j.ok){
+    const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({credential:resp&&resp.credential})});
+    let j={}; try{ j=await r.json(); }catch(e){}
+    if(r.status===200&&j.ok){
+      gDiag('');
+      appCode=''; try{ localStorage.removeItem('budget-app-code'); }catch(e){}
       document.getElementById('lock').style.display='none';
       document.getElementById('boot').style.display='block';
-      load();
-    } else { err.textContent=(j&&j.message)||'ההתחברות נכשלה'; err.style.display='block'; }
-  }catch(e){ err.textContent='שגיאה: '+e.message; err.style.display='block'; }
+      location.reload();
+      return;
+    }
+    gDiag('השרת דחה את ההתחברות (HTTP '+r.status+')<br>'+esc(j.message||j.error||'ללא פירוט'));
+  }catch(e){ gDiag('שגיאת רשת: '+esc(e.message)); }
 }
 function showLock(bad){
   document.getElementById('boot').style.display='none';
