@@ -1,24 +1,16 @@
 import { OAuth2Client } from 'google-auth-library';
-import Redis from 'ioredis';
+import { withRetry } from './_redis.js';
 import { signSession, readSession, authorized, sessionSecret, COOKIE, MAXAGE } from './_auth.js';
 
 const ALLOW_KEY = 'household-budget-allowed';
-
-async function withRedis(fn) {
-  const url = process.env.REDIS_URL;
-  if (!url) return null;
-  const r = new Redis(url, { maxRetriesPerRequest: 2, lazyConnect: true });
-  try { await r.connect(); return await fn(r); }
-  finally { try { r.disconnect(); } catch (e) {} }
-}
 
 async function getAllowList() {
   const fromEnv = (process.env.ALLOWED_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
   let stored = [];
   try {
-    const raw = await withRedis(r => r.get(ALLOW_KEY));
+    const raw = await withRetry(c => c.get(ALLOW_KEY), 'allow-get');
     if (raw) stored = JSON.parse(raw).map(s => String(s).trim().toLowerCase()).filter(Boolean);
-  } catch (e) {}
+  } catch (e) { console.error('[auth] allow-list read failed:', e && e.message); }
   return Array.from(new Set(fromEnv.concat(stored)));
 }
 
@@ -49,7 +41,7 @@ export default async function handler(req, res) {
       ? Array.from(new Set(body.allowed.map(x => String(x).trim().toLowerCase()).filter(x => x.indexOf('@') > 0))).slice(0, 20)
       : [];
     try {
-      await withRedis(r => r.set(ALLOW_KEY, JSON.stringify(list)));
+      await withRetry(c => c.set(ALLOW_KEY, JSON.stringify(list)), 'allow-set');
       res.status(200).json({ ok: true, allowed: list });
     } catch (e) { res.status(500).json({ error: 'save_failed', message: String(e) }); }
     return;
