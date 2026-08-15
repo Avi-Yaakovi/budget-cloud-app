@@ -1448,11 +1448,38 @@ function ctx(){
   const b=Object.entries(data.budgets||{}).filter(([,v])=>v>0);
   if(b.length){ s+='\nתקציבים חודשיים:\n'; b.forEach(([c,v])=>s+=`  ${c}: ${Math.round(v)}\n`); }
   if((data.recurring||[]).length){ s+='\nתנועות קבועות:\n'; data.recurring.forEach(r=>s+=`  ${r.note||r.category} ${r.type==='income'?'+':'-'}${Math.round(r.amount)} (${r.category}, כל ${r.day})\n`); }
+  /* The assistant used to answer "I have no access to the import history"
+     because none of this was ever put in front of it. */
+  if((data.cards||[]).length){
+    s+='\nכרטיסי אשראי רשומים:\n';
+    (data.cards||[]).forEach(c=>{
+      const lb=(data.cardLabels||{})[c.last4]||c.label||'';
+      const n=data.transactions.filter(t=>t.cardLast4===c.last4).length;
+      s+=`  ····${c.last4} | ${c.company||'לא ידוע'}${lb?' | '+lb:''} | ${n} תנועות\n`;
+    });
+  }
+  const ih=data.importHistory||[];
+  if(ih.length){
+    s+=`\nהיסטוריית ייבוא (${ih.length} קבצים, האחרונים ראשונים):\n`;
+    ih.slice(0,25).forEach(x=>{
+      s+=`  ${x.at||'—'} | ${x.company||'—'}${x.cardLast4?' ····'+x.cardLast4:''}${x.cardLabel?' ('+x.cardLabel+')':''}`
+       +` | חודשים: ${(x.months||[]).join(', ')||'—'} | ${x.count||0} תנועות${x.file?' | '+x.file:''}\n`;
+    });
+    const covered={};
+    data.transactions.forEach(t=>{ if(t.cardLast4){ const k=mk(t.date); (covered[k]=covered[k]||new Set()).add(t.cardLast4); } });
+    const known=(data.cards||[]).map(c=>c.last4);
+    const gaps=Object.keys(covered).sort().map(k=>{
+      const miss=known.filter(l=>!covered[k].has(l));
+      return miss.length?`  ${mLabel(k)}: חסר ${miss.map(l=>'····'+l).join(', ')}`:null;
+    }).filter(Boolean);
+    if(gaps.length) s+='\nחודשים שבהם לא נראו תנועות מכרטיס רשום:\n'+gaps.join('\n')+'\n';
+  }
   const allM=Array.from(new Set(data.transactions.map(t=>mk(t.date)))).sort();
   s+=`\nסך הכל ${data.transactions.length} תנועות, מ${allM.length?mLabel(allM[0]):'—'} ואילך.\n`;
   s+=`\nתנועות ב${mLabel(curM)} (החודש המוצג):\n`;
   mTx(curM).slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>{
-    s+=`${t.date} | ${t.note||t.category} | ${t.category} | ${t.type==='income'?'+':(t.amount<0?'החזר +':'-')}${Math.abs(Math.round(t.amount))}\n`;
+    const src=t.cardLast4?' | ····'+t.cardLast4:(t.recurringId?' | קבוע':' | ידני');
+    s+=`${t.date} | ${t.note||t.category} | ${t.category}${src} | ${t.type==='income'?'+':(t.amount<0?'החזר +':'-')}${Math.abs(Math.round(t.amount))}\n`;
   });
   return s;
 }
