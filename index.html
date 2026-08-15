@@ -385,7 +385,8 @@ input.num{font-family:var(--f-num);}
           <p class="hint">שלוש בדיקות שמנקות בעיות שנוצרו בייבואים קודמים. כל אחת מציגה מה היא עומדת לעשות לפני שהיא נוגעת בכלום.</p>
           <button class="go ghost sm" id="fixDup" type="button" style="margin-bottom:8px">איתור כפילויות</button>
           <button class="go ghost sm" id="fixRef" type="button" style="margin-bottom:8px">תיקון החזרים שסומנו כהכנסה</button>
-          <button class="go ghost sm" id="fixCat" type="button">סיווג מחדש של "אחר"</button>
+          <button class="go ghost sm" id="fixCat" type="button" style="margin-bottom:8px">סיווג מחדש של "אחר"</button>
+          <button class="go ghost sm" id="fixDate" type="button">בדיקת הזזת תאריכים בייבוא</button>
           <p class="blank" id="fixMsg" style="display:none"></p>
         </div>
 
@@ -1403,6 +1404,39 @@ function recat(){
   save(); renderAll(); msg('fixMsg','סווגו מחדש '+plan.length+' תנועות');
 }
 
+/* Imported rows created before the timezone fix are stored one day early, so a
+   purchase truly made on the 1st sits on the last day of the previous month.
+   This measures how much money that moved between months. It only reads. */
+function lastDay(k){ const [y,m]=k.split('-').map(Number); return `${k}-${pad(dim(y,m))}`; }
+function dateAudit(){
+  const imp=data.transactions.filter(t=>t.cardLast4&&!t.recurringId);
+  if(!imp.length){ msg('fixMsg','אין תנועות מיובאות לבדיקה'); return; }
+  const ms=Array.from(new Set(imp.map(t=>mk(t.date)))).sort();
+  const span=[shiftM(ms[0],-1)].concat(ms);
+  const L={},N={};
+  span.forEach(k=>{ const d=lastDay(k), r=imp.filter(t=>t.date===d);
+    L[k]=r.reduce((s,t)=>s+t.amount,0); N[k]=r.length; });
+  const rows=ms.map(k=>({k,err:(L[k]||0)-(L[shiftM(k,-1)]||0),n:N[k]||0}));
+  const e=rows.map(r=>r.err);
+  const mean=e.reduce((s,x)=>s+x,0)/e.length;
+  const sd=Math.sqrt(e.reduce((s,x)=>s+(x-mean)*(x-mean),0)/e.length);
+  const moved=ms.reduce((s,k)=>s+(N[k]||0),0);
+  const mabs=rows.reduce((s,r)=>s+Math.abs(r.err),0)/rows.length;
+  const worst=rows.slice().sort((a,b)=>Math.abs(b.err)-Math.abs(a.err)).slice(0,5)
+    .filter(r=>r.err!==0)
+    .map(r=>'· '+mLabel(r.k)+': '+(r.err>0?'+':'-')+money(r.err)+'  ('+r.n+' תנועות)').join('\n');
+  alert('בדיקת הזזת תאריכים\n\n'
+    +'חודשים שנבדקו: '+rows.length+'\n'
+    +'תנועות מיובאות: '+imp.length+'\n'
+    +'תנועות שזזו בין חודשים: '+moved+'\n\n'
+    +'סטיית תקן של השגיאה החודשית: '+money(sd)+'\n'
+    +'הטיה ממוצעת: '+signed(Math.round(mean))+'\n'
+    +'שגיאה מוחלטת ממוצעת: '+money(mabs)+'\n\n'
+    +(worst?('החודשים שסטו הכי הרבה:\n'+worst+'\n\n'):'')
+    +'הסכום הכולל לכל התקופה מדויק — הכסף רק זז בין חודשים סמוכים.');
+  msg('fixMsg','סטיית תקן '+money(sd)+' · '+moved+' תנועות זזו');
+}
+
 /* ================= chat ================= */
 function ctx(){
   let s='אתה עוזר תקציב למשק בית. ענה בעברית, קצר ולעניין, והתבסס רק על הנתונים כאן. אם משהו לא ברור מהם, אמור זאת. אינך יועץ פיננסי מורשה — הימנע מהמלצות השקעה.\n\nהערה: סכום שלילי בהוצאה הוא החזר כספי.\n\n';
@@ -1523,6 +1557,7 @@ function bind(){
   document.getElementById('fixDup').onclick=findDups;
   document.getElementById('fixRef').onclick=fixRefunds;
   document.getElementById('fixCat').onclick=recat;
+  document.getElementById('fixDate').onclick=dateAudit;
   document.getElementById('askGo').onclick=()=>ask(document.getElementById('ask').value);
   document.getElementById('ask').onkeydown=e=>{ if(e.key==='Enter'){e.preventDefault();ask(e.target.value);} };
   document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>ask(c.textContent));
