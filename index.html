@@ -386,7 +386,8 @@ input.num{font-family:var(--f-num);}
           <button class="go ghost sm" id="fixDup" type="button" style="margin-bottom:8px">איתור כפילויות</button>
           <button class="go ghost sm" id="fixRef" type="button" style="margin-bottom:8px">תיקון החזרים שסומנו כהכנסה</button>
           <button class="go ghost sm" id="fixCat" type="button" style="margin-bottom:8px">סיווג מחדש של "אחר"</button>
-          <button class="go ghost sm" id="fixDate" type="button">בדיקת הזזת תאריכים בייבוא</button>
+          <button class="go ghost sm" id="fixDate" type="button" style="margin-bottom:8px">בדיקת הזזת תאריכים בייבוא</button>
+          <button class="go ghost sm" id="fixShift" type="button">תיקון 12 התאריכים ההיסטוריים</button>
           <p class="blank" id="fixMsg" style="display:none"></p>
         </div>
 
@@ -1404,6 +1405,44 @@ function recat(){
   save(); renderAll(); msg('fixMsg','סווגו מחדש '+plan.length+' תנועות');
 }
 
+/* One-shot repair of the twelve rows imported before the timezone fix, keyed by
+   id so it cannot touch anything else. Each row moves only if it still holds the
+   exact wrong date, which makes a second run a no-op. */
+const SHIFTED=[
+  ['17823914762493as6q','2026-04-30','2026-05-01'],
+  ['1782391476249rck1r','2026-04-30','2026-05-01'],
+  ['1782391476249ryygn','2026-04-30','2026-05-01'],
+  ['1782391476249y4dt3','2026-04-30','2026-05-01'],
+  ['1782391476249d8pt4','2026-04-30','2026-05-01'],
+  ['1783501635286ngm7b','2026-05-31','2026-06-01'],
+  ['1783501635286wr9xw','2026-05-31','2026-06-01'],
+  ['1784707838572wm2iv','2026-06-30','2026-07-01'],
+  ['17847078385726t2u3','2026-06-30','2026-07-01'],
+  ['1783499418963z8ihe','2026-06-30','2026-07-01'],
+  ['17834994189630cfls','2026-06-30','2026-07-01'],
+  ['1784707838572sd182','2026-06-30','2026-07-01']
+];
+function fixShiftedDates(){
+  const byId=new Map(data.transactions.map(t=>[t.id,t]));
+  const todo=[], done=[], gone=[];
+  SHIFTED.forEach(([id,from,to])=>{
+    const t=byId.get(id);
+    if(!t) gone.push(id);
+    else if(t.date===from) todo.push([t,to]);
+    else done.push(t);
+  });
+  if(!todo.length){
+    msg('fixMsg', gone.length===SHIFTED.length ? 'התנועות לא נמצאו — כנראה כבר תוקנו או נמחקו' : 'כל 12 התאריכים כבר מתוקנים');
+    return;
+  }
+  const lines=todo.map(([t,to])=>'· '+(t.note||t.category)+' '+money(t.amount)+'  '+dLabel(t.date)+' ← '+dLabel(to)).join('\n');
+  if(!confirm('להזיז '+todo.length+' תנועות ביום אחד קדימה?\n\n'+lines
+    +'\n\nרק התאריך משתנה. סכומים, קטגוריות וכרטיסים לא נוגעים.')) return;
+  todo.forEach(([t,to])=>{ t.date=to; });
+  save(); renderAll();
+  msg('fixMsg','תוקנו '+todo.length+' תאריכים'+(done.length?(' · '+done.length+' כבר היו מתוקנים'):''));
+}
+
 /* Imported rows created before the timezone fix are stored one day early, so a
    purchase truly made on the 1st sits on the last day of the previous month.
    This measures how much money that moved between months. It only reads. */
@@ -1476,11 +1515,20 @@ function ctx(){
   }
   const allM=Array.from(new Set(data.transactions.map(t=>mk(t.date)))).sort();
   s+=`\nסך הכל ${data.transactions.length} תנועות, מ${allM.length?mLabel(allM[0]):'—'} ואילך.\n`;
-  s+=`\nתנועות ב${mLabel(curM)} (החודש המוצג):\n`;
-  mTx(curM).slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(t=>{
-    const src=t.cardLast4?' | ····'+t.cardLast4:(t.recurringId?' | קבוע':' | ידני');
-    s+=`${t.date} | ${t.note||t.category} | ${t.category}${src} | ${t.type==='income'?'+':(t.amount<0?'החזר +':'-')}${Math.abs(Math.round(t.amount))}\n`;
+  /* Detail rows used to cover only the displayed month, so a question about any
+     other month got category totals and nothing to itemise. */
+  const detail=Array.from(new Set(allM.concat([curM]))).sort().slice(-3);
+  if(detail.indexOf(curM)===-1) detail.push(curM);
+  detail.forEach(k=>{
+    const rows=mTx(k).slice().sort((a,b)=>a.date.localeCompare(b.date));
+    if(!rows.length) return;
+    s+=`\nתנועות ב${mLabel(k)}${k===curM?' (החודש המוצג)':''} — ${rows.length} שורות:\n`;
+    rows.forEach(t=>{
+      const src=t.cardLast4?' | ····'+t.cardLast4:(t.recurringId?' | קבוע':' | ידני');
+      s+=`${t.date} | ${t.note||t.category} | ${t.category}${src} | ${t.type==='income'?'+':(t.amount<0?'החזר +':'-')}${Math.abs(Math.round(t.amount))}\n`;
+    });
   });
+  s+='\nלחודשים מוקדמים יותר יש כאן סיכומי קטגוריות בלבד, לא פירוט שורות. אם נשאלת על חודש כזה, אמור זאת והצע לעבור אליו באפליקציה.\n';
   return s;
 }
 function bubble(role,text){
@@ -1585,6 +1633,7 @@ function bind(){
   document.getElementById('fixRef').onclick=fixRefunds;
   document.getElementById('fixCat').onclick=recat;
   document.getElementById('fixDate').onclick=dateAudit;
+  document.getElementById('fixShift').onclick=fixShiftedDates;
   document.getElementById('askGo').onclick=()=>ask(document.getElementById('ask').value);
   document.getElementById('ask').onkeydown=e=>{ if(e.key==='Enter'){e.preventDefault();ask(e.target.value);} };
   document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>ask(c.textContent));
