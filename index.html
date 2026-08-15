@@ -451,10 +451,10 @@ const RULES = [
   [['עיריי','עירית','ארנונה','מילגם','מועצה מקומית','מים','מי אונו','תאגיד המים'],'ארנונה ורשות מקומית'],
   [['NETFLIX','SPOTIFY','GOOGLE ONE','YOUTUBE','APPLE.COM','ITUNES','DISNEY','AMAZON PRIME','OPENAI','ANTHROPIC','מנוי'],'מנויים'],
   [['חסכון','חיסכון','קרן השתלמות','גמל','פקדון'],'חיסכון'],
-  [['פנגו','חניון','חניה','דלק','פז','סונול','דור אלון','רכבת','אגד','דן','מוניות','גט','יאנגו','רב קו','תחבורה','מוסך','צמיג'],'תחבורה'],
+  [['פנגו','חניון','חניה','דלק','פז','סונול','דור אלון','רכבת','אגד','דן','מוניות','GETT','גט','יאנגו','רב קו','תחבורה','מוסך','צמיג'],'תחבורה'],
   [['מזון','משקאות','סופר','מרכול','קצב','מאפי','ירקות','שוק','יין','קפה','מסעד','פיצה','בורגר','AMPM','CARREFOUR','שופרסל','רמי לוי','ויקטורי','טיב טעם','אושר עד'],'מזון'],
-  [['ריהוט','עיצוב','איקאה','הום סנטר','ACE','כלי בית','חשמל','מזגן'],'דיור'],
-  [['ביגוד','הנעלה','אופנה','קסטרו','זara','פוקס','גולף','H&M','נעלי'],'ביגוד'],
+  [['ריהוט','עיצוב','איקאה','הום סנטר','ACE','כלי בית','מוצרי חשמל','חשמל ביתי','מזגן'],'דיור'],
+  [['ביגוד','הנעלה','אופנה','קסטרו','ZARA','זארה','פוקס','גולף','H&M','נעלי'],'ביגוד'],
   [['חינוך','לימוד','גן ','גני ','צהרון','חוג','בית ספר','אוניברסיט','מכללה'],'חינוך'],
   [['סלולר','פלאפון','סלקום','פרטנר','הוט','בזק','יס','אינטרנט','תקשורת','חשמל','חברת החשמל'],'חשבונות ותקשורת'],
   [['פנאי','בידור','תרבות','נופש','תיירות','מלון','ספרים','ספורט','חדר כושר','פיטנס','קולנוע','תיאטרון','הבימה','בריכה'],'פנאי ובילויים'],
@@ -491,11 +491,31 @@ const CITIES=/^(AMSTERDAM|MOUNTAINVIEW|SANFRANCISCO|NEWYORK|LONDON|DUBLIN|SEATTL
 function normName(s){ return String(s==null?'':s).toUpperCase().replace(/[^\u0590-\u05FFA-Z0-9]/g,'').replace(CITIES,''); }
 function dupKey(date,note,amt){ return date+'|'+normName(note)+'|'+Number(amt).toFixed(2); }
 
+/* Short keys ('דן','גט','שוק') used to match inside longer words:
+   'בגט' read as Gett, 'גן עדן' read as the Dan bus company. Keys of up to
+   three characters now need a word boundary; Hebrew three-letter keys still
+   tolerate a single attached prefix letter, so 'בשוק' keeps matching 'שוק'. */
+const KWORD=/[\u0590-\u05FFA-Za-z0-9]/;
+const KPFX='בהולמשכד';
+function hasKey(t,k){
+  if(k.length>3||k.indexOf(' ')!==-1) return t.indexOf(k)!==-1;
+  const heb=/[\u0590-\u05FF]/.test(k);
+  let i=-1;
+  while((i=t.indexOf(k,i+1))!==-1){
+    const a=t[i+k.length];
+    if(a&&KWORD.test(a)) continue;
+    const b=t[i-1];
+    if(!b||!KWORD.test(b)) return true;
+    if(heb&&k.length===3&&KPFX.indexOf(b)!==-1) return true;
+  }
+  return false;
+}
+
 function guessCat(text){
   const t=String(text||'');
-  for(const [keys,cat] of RULES){ for(const k of keys){ if(t.indexOf(k)!==-1) return cat; } }
+  for(const [keys,cat] of RULES){ for(const k of keys){ if(hasKey(t,k)) return cat; } }
   const up=t.toUpperCase();
-  for(const [keys,cat] of RULES){ for(const k of keys){ if(k===k.toUpperCase() && up.indexOf(k)!==-1) return cat; } }
+  for(const [keys,cat] of RULES){ for(const k of keys){ if(k===k.toUpperCase() && hasKey(up,k)) return cat; } }
   return 'אחר';
 }
 
@@ -577,12 +597,12 @@ async function save(){
   if(!loaded) return;                 /* guard: nothing was ever read, so nothing may be written */
   if(saving){ queued=true; return; }
   saving=true;
-  let good=false;
+  let good=false, pulled=false;
   try{
     const r=await api('/api/data');
     if(r.status!==200) throw new Error('pre-read failed with '+r.status);
     const j=await r.json();
-    if(j&&j.value){ try{ data=merge(normalize(JSON.parse(j.value)),data); }catch(e){} }
+    if(j&&j.value){ try{ const b=JSON.stringify(data); data=merge(normalize(JSON.parse(j.value)),data); pulled=JSON.stringify(data)!==b; }catch(e){} }
     const w=await api('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
     if(w.status!==200) throw new Error('write failed with '+w.status);
     good=true;
@@ -590,6 +610,9 @@ async function save(){
     console.error('save aborted:',e.message);
   }
   try{ saveWarn(!good); }catch(e){}   /* UI feedback must never affect the save verdict */
+  /* the pre-read can pull in the other person's rows; without this the screen
+     kept showing the pre-merge state until a manual refresh */
+  if(good&&pulled){ try{ renderAll(); }catch(e){} }
   saving=false;
   if(queued){ queued=false; save(); }
 }
@@ -1116,7 +1139,10 @@ function detectHolder(a){
 function toDate(v){
   if(v==null||v==='') return null;
   if(typeof v==='number'&&v>20000&&v<80000){ const d=new Date(Date.UTC(1899,11,30)+Math.round(v)*86400000); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`; }
-  if(v instanceof Date&&!isNaN(v)) return `${v.getUTCFullYear()}-${pad(v.getUTCMonth()+1)}-${pad(v.getUTCDate())}`;
+  /* SheetJS builds Date objects at LOCAL midnight. Reading them back with the
+     UTC getters shifted every imported row one day earlier in Israel (UTC+2/+3),
+     which moved first-of-month purchases into the previous month. */
+  if(v instanceof Date&&!isNaN(v)) return `${v.getFullYear()}-${pad(v.getMonth()+1)}-${pad(v.getDate())}`;
   const m=String(v).match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/);
   if(m){ let[,d,mo,y]=m; if(y.length===2)y='20'+y; return `${y}-${pad(parseInt(mo))}-${pad(parseInt(d))}`; }
   return null;
@@ -1151,9 +1177,13 @@ function parseSheet(a){
     const date=toDate(di!==-1?row[di]:null); if(!date) continue;
     const name=clean(merch);
     const sect=si!==-1?String(row[si]||''):'';
+    /* MAX exports cover every card on the account, so the last-4 has to be read
+       per row; using the file-level value tagged the whole report to one card. */
+    let rc4=null;
+    if(ki!==-1&&row[ki]!=null){ const rv=String(row[ki]).trim(); if(/^\d{3,4}$/.test(rv)) rc4=rv; }
     out.push({ date, note:name, amount:n, type:'expense',
       category: guessCat(sect||name)==='אחר' ? guessCat(name) : guessCat(sect||name),
-      include:true, cardLast4:c4 });
+      include:true, cardLast4:rc4||c4 });
   }
   return {rows:out,co,c4,holder};
 }
@@ -1435,7 +1465,13 @@ function restore(e){
       const p=JSON.parse(ev.target.result);
       if(!p||!Array.isArray(p.transactions)) throw new Error('לא נראה כמו קובץ גיבוי');
       if(!confirm('לשחזר '+p.transactions.length+' תנועות?\nכל הנתונים הנוכחיים יוחלפו.')){ e.target.value=''; return; }
-      data=normalize(p); save(); renderAll();
+      /* save() merges with the server by id, so without tombstones a restore
+         only ever added rows back — the dialog promised a replacement. */
+      const keep=new Set([].concat((p.transactions||[]).map(t=>t.id),(p.recurring||[]).map(r=>r.id)));
+      const tomb=[].concat(data.transactions.map(t=>t.id),(data.recurring||[]).map(r=>r.id)).filter(id=>!keep.has(id));
+      data=normalize(p);
+      data.deleted=Array.from(new Set([].concat(data.deleted||[],tomb)));
+      save(); renderAll();
       alert('השחזור הושלם: '+data.transactions.length+' תנועות');
     }catch(err){ alert('השחזור נכשל: '+err.message); }
     e.target.value='';
