@@ -232,10 +232,13 @@ input.num{font-family:var(--f-num);}
         </div>
 
         <div id="gapNote"></div>
+        <div id="fcNote"></div>
+        <div id="bigNote"></div>
+        <div id="watchNote"></div>
         <div id="remNote"></div>
 
         <div class="card">
-          <h2 class="ttl">מגמה חודשית<span class="sub">לחצו על עמודה למעבר</span></h2>
+          <h2 class="ttl">מגמה חודשית<span class="sub">לחצו על עמודה למעבר</span><button class="txt" id="trendMode" type="button" style="float:left">מנורמל</button></h2>
           <div class="legend">
             <span><span class="key" style="background:var(--pos)"></span>הכנסות</span>
             <span><span class="key" style="background:var(--neg)"></span>הוצאות</span>
@@ -361,6 +364,13 @@ input.num{font-family:var(--f-num);}
           <p class="blank" id="recMsg" style="display:none"></p>
           <button class="go ghost sm" id="rFill" type="button" style="margin-top:9px">החל על חודשים קודמים</button>
         </div>
+
+        <div class="card">
+          <h2 class="ttl">חיובים חוזרים שזוהו<span class="sub">מתוך דוחות האשראי</span></h2>
+          <p class="hint">ספקים שמחייבים בערך פעם בחודש בסכום דומה, ואינם רשומים כתנועה קבועה. אם משהו כאן הפסיק להופיע — כדאי לבדוק למה.</p>
+          <div class="list" id="subsList"></div>
+          <p class="blank" id="subsNo" style="display:none">לא זוהו חיובים חוזרים</p>
+        </div>
       </section>
 
       <!-- ============ MORE ============ -->
@@ -467,6 +477,7 @@ let data = emptyData();
 let curM='', addKind='expense', recKind='expense', fType='all', fCard='all', q='', lim=20;
 let pendImport=[], pendMeta=null, chat=[], appCode='', codeRequired=true, saving=false, queued=false;
 let allowed=[];
+let trendNorm=false;   /* trend chart: actual months vs 3-month rolling average */
 let loaded=false;   /* never write to the server before a successful read */
 try{ appCode = localStorage.getItem('budget-app-code')||''; }catch(e){}
 
@@ -759,9 +770,9 @@ function msg(id,t){ const e=document.getElementById(id); e.textContent=t; e.styl
 
 /* ================= render ================= */
 function renderAll(){
-  renderMonth(); renderHero(); renderGap(); renderRemind(); renderTrend();
+  renderMonth(); renderHero(); renderGap(); renderForecast(); renderBig(); renderWatch(); renderRemind(); renderTrend();
   renderSplit(); renderByCard(); renderBudgets(); renderTx();
-  renderRec(); renderHist(); renderCards(); renderCats(); fillCatSelects(); renderAllowed();
+  renderRec(); renderSubs(); renderHist(); renderCards(); renderCats(); fillCatSelects(); renderAllowed();
 }
 
 function setTab(p){
@@ -793,15 +804,124 @@ function renderHero(){
   } else d.style.display='none';
 }
 
+/* The balance alone hides the real constraint: how much of the month was already
+   committed before a single discretionary shekel was spent. */
 function renderGap(){
   const el=document.getElementById('gapNote');
   const ri=(data.recurring||[]).filter(r=>r.type==='income').reduce((s,r)=>s+r.amount,0);
   const re=(data.recurring||[]).filter(r=>r.type==='expense').reduce((s,r)=>s+r.amount,0);
   if(!ri&&!re){ el.innerHTML=''; return; }
-  const g=ri-re;
-  el.innerHTML = g<0
-    ? `<div class="note warn"><div class="note-body"><b>ההוצאות הקבועות גדולות מההכנסות הקבועות.</b><br>קבוע יוצא <span class="n">${money(re)}</span> מול <span class="n">${money(ri)}</span> שנכנס — פער של <span class="n">${money(g)}</span> בחודש, לפני הוצאות שוטפות.</div></div>`
-    : `<div class="note info"><div class="note-body">אחרי כל התנועות הקבועות נשאר <span class="n" style="color:var(--pos)">${money(g)}</span> בחודש להוצאות שוטפות ולחיסכון.</div></div>`;
+  const free=ri-re;
+  const tx=mTx(curM);
+  const usedV=tx.filter(t=>t.type==='expense'&&!t.recurringId).reduce((s,t)=>s+t.amount,0);
+  const extraI=tx.filter(t=>t.type==='income'&&!t.recurringId).reduce((s,t)=>s+t.amount,0);
+  const pool=free+extraI, left=pool-usedV;
+  if(free<0){
+    el.innerHTML=`<div class="note warn"><div class="note-body"><b>הקבועות לבדן גדולות מההכנסה הקבועה.</b><br>`
+      +`יוצא <span class="n">${money(re)}</span> מול <span class="n">${money(ri)}</span> שנכנס — חסר <span class="n">${money(free)}</span> עוד לפני הוצאה שוטפת אחת.</div></div>`;
+    return;
+  }
+  const commitPct=ri?Math.min(100,Math.round(re/ri*100)):0;
+  const usedPct=pool>0?Math.min(100,Math.round(usedV/pool*100)):(usedV>0?100:0);
+  const col=left<0?'var(--neg)':(usedPct>=80?'var(--warn)':'var(--pos)');
+  el.innerHTML=`<div class="card">
+    <h2 class="ttl">מחויב מראש מול פנוי<span class="sub">${mLabel(curM)}</span></h2>
+    <div class="brow"><div class="btop"><span>קבועות מתוך ההכנסה הקבועה</span><span class="r">${money(re)} / ${money(ri)} · ${commitPct}%</span></div>
+      <div class="btrack"><div class="bfill" style="width:${commitPct}%;background:var(--accent)"></div></div></div>
+    <div class="brow"><div class="btop"><span>מהפנוי כבר נוצל</span><span class="r">${money(usedV)} / ${money(pool)} · ${usedPct}%</span></div>
+      <div class="btrack"><div class="bfill" style="width:${usedPct}%;background:${col}"></div></div></div>
+    <p class="hint" style="margin:2px 0 0">${left>=0
+      ? `נשאר <b class="n" style="color:var(--pos)">${money(left)}</b> פנוי החודש.`
+      : `חריגה של <b class="n" style="color:var(--neg)">${money(left)}</b> מעבר לפנוי.`}</p>
+  </div>`;
+}
+
+/* Projects the month before it ends, from the pace of discretionary spend so far.
+   Recurring rows are already created in full for the month, so only the variable
+   part is extrapolated. */
+function renderForecast(){
+  const el=document.getElementById('fcNote'); el.innerHTML='';
+  if(curM!==realM()) return;
+  const [y,m]=curM.split('-').map(Number), tot=dim(y,m), day=new Date().getDate();
+  if(day<5||day>=tot) return;
+  const tx=mTx(curM);
+  const varE=tx.filter(t=>t.type==='expense'&&!t.recurringId).reduce((s,t)=>s+t.amount,0);
+  const recE=tx.filter(t=>t.type==='expense'&&t.recurringId).reduce((s,t)=>s+t.amount,0);
+  const inc=tx.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  if(!varE&&!recE) return;
+  const proj=recE+varE/day*tot, bal=inc-proj;
+  el.innerHTML=`<div class="note ${bal<0?'warn':'info'}"><div class="note-body">`
+    +`<b>תחזית לסוף ${MONTHS[m-1]}</b> (לפי ${day} מתוך ${tot} ימים)<br>`
+    +`הוצאות צפויות <span class="n">${money(proj)}</span>`
+    +(inc?` · מאזן צפוי <span class="n" style="color:${bal<0?'var(--neg)':'var(--pos)'}">${signed(Math.round(bal))}</span>`:'')
+    +`<br><span style="font-size:11px;color:var(--ink-3)">הקבועות נספרות מלאות; המשתנות מוכפלות לפי הקצב עד עכשיו.</span></div></div>`;
+}
+
+/* Flags unusually large one-off charges, so a bad-looking month can be read
+   correctly instead of blamed on day-to-day spending. */
+function renderBig(){
+  const el=document.getElementById('bigNote'); el.innerHTML='';
+  const big=mTx(curM).filter(t=>t.type==='expense'&&!t.recurringId&&t.amount>=700)
+    .sort((a,b)=>b.amount-a.amount).slice(0,4);
+  if(!big.length) return;
+  const sum=big.reduce((s,t)=>s+t.amount,0);
+  el.innerHTML=`<div class="note info"><div class="note-body"><b>חיובים גדולים חד־פעמיים החודש — ${money(sum)}</b><br>`
+    +big.map(t=>`${esc(t.note||t.category)} <span class="n">${money(t.amount)}</span>`).join(' · ')
+    +`<br><span style="font-size:11px;color:var(--ink-3)">בלעדיהם החודש עומד על ${money(sums(curM).exp-sum)}.</span></div></div>`;
+}
+
+/* Standing orders that simply stopped showing up are invisible otherwise —
+   this is how the missing water and mobile bills went unnoticed for months. */
+function subsLike(){
+  const by=new Map();
+  data.transactions.forEach(t=>{
+    if(t.type!=='expense'||t.recurringId||t.amount<=0) return;
+    const k=normName(t.note||''); if(k.length<4) return;
+    if(!by.has(k)) by.set(k,[]);
+    by.get(k).push(t);
+  });
+  const now=new Date(today()), out=[];
+  by.forEach(rows=>{
+    if(rows.length<3) return;
+    const months=new Set(rows.map(t=>mk(t.date)));
+    if(months.size<3) return;
+    if(rows.length/months.size>1.6) return;                  /* a shop, not a subscription */
+    const amts=rows.map(t=>t.amount);
+    if(Math.max.apply(null,amts)/Math.min.apply(null,amts)>3) return;
+    const last=rows.map(t=>t.date).sort().pop();
+    out.push({ n:rows[0].note, cat:rows[0].category, c4:rows[0].cardLast4||null,
+      a:amts.reduce((s,x)=>s+x,0)/amts.length, last:last,
+      d:Math.round((now-new Date(last))/86400000) });
+  });
+  return out.sort((a,b)=>b.a-a.a);
+}
+function renderWatch(){
+  const el=document.getElementById('watchNote'); el.innerHTML='';
+  const gone=subsLike().filter(g=>g.d>40);
+  if(!gone.length) return;
+  el.innerHTML=`<div class="note warn"><div class="note-body"><b>חיובים חוזרים שהפסיקו להופיע</b><br>`
+    +gone.slice(0,5).map(g=>`${esc(g.n)} — כ־<span class="n">${money(g.a)}</span>, לא נראה ${g.d} יום`).join('<br>')
+    +`<br><span style="font-size:11px;color:var(--ink-3)">או שהחיוב עבר לבנק, או שהמנוי נפסק. שווה בדיקה.</span></div></div>`;
+}
+function renderSubs(){
+  const box=document.getElementById('subsList'), no=document.getElementById('subsNo');
+  box.innerHTML='';
+  const s=subsLike();
+  if(!s.length){ no.style.display='block'; return; }
+  no.style.display='none';
+  const tot=s.reduce((x,g)=>x+g.a,0);
+  s.forEach(g=>{
+    const d=document.createElement('div'); d.className='r';
+    const bits=[g.cat]; if(g.c4) bits.push('····'+g.c4);
+    bits.push(g.d>40?('לא נראה '+g.d+' יום'):('אחרון '+dLabel(g.last)));
+    d.innerHTML=`<div class="r-mid"><span class="r-t">${esc(g.n)}${g.d>40?'<span class="tag">נעצר?</span>':''}</span>`
+      +`<span class="r-s">${esc(bits.join(' · '))}</span></div>`
+      +`<span class="r-v n">${money(g.a)}</span>`;
+    box.appendChild(d);
+  });
+  const f=document.createElement('div'); f.className='r';
+  f.innerHTML=`<div class="r-mid"><span class="r-t">סה״כ חוזר בחודש</span><span class="r-s">${s.length} ספקים · מעבר לתנועות הקבועות</span></div><span class="r-v n">${money(tot)}</span>`;
+  box.appendChild(f);
 }
 
 function cardName(l4){
@@ -835,7 +955,13 @@ function renderTrend(){
   const ms=Array.from(new Set(data.transactions.map(t=>mk(t.date)))).sort().slice(-6);
   if(ms.length<2){ no.style.display='block'; txt.textContent=''; return; }
   no.style.display='none';
-  const st=ms.map(k=>Object.assign({k},sums(k)));
+  let st=ms.map(k=>Object.assign({k},sums(k)));
+  /* Bi-monthly bills land as spikes; the rolling view makes months comparable. */
+  if(trendNorm){
+    const raw=st.slice();
+    st=raw.map((x,i)=>{ const w=raw.slice(Math.max(0,i-2),i+1);
+      return {k:x.k, inc:w.reduce((s,z)=>s+z.inc,0)/w.length, exp:w.reduce((s,z)=>s+z.exp,0)/w.length}; });
+  }
   const max=Math.max(1,...st.map(x=>Math.max(x.inc,x.exp)));
   st.forEach(x=>{
     const [,m]=x.k.split('-').map(Number), part=x.k===realM();
@@ -848,8 +974,11 @@ function renderTrend(){
   const done=st.filter(x=>x.k!==realM()), base=done.length?done:st;
   const avg=base.reduce((s,x)=>s+x.exp,0)/base.length;
   const top=base.slice().sort((a,b)=>b.exp-a.exp)[0];
-  txt.textContent=`ממוצע הוצאות ${money(avg)} לחודש · הגבוה ביותר: ${mLabel(top.k)} (${money(top.exp)})`
+  txt.textContent=(trendNorm?'ממוצע נע 3 חודשים · ':'')
+    +`ממוצע הוצאות ${money(avg)} לחודש · הגבוה ביותר: ${mLabel(top.k)} (${money(top.exp)})`
     +(st.some(x=>x.k===realM())?'  ·  * החודש עוד לא הסתיים':'');
+  const btn=document.getElementById('trendMode');
+  if(btn) btn.textContent=trendNorm?'בפועל':'מנורמל';
 }
 
 function catTotals(k){
@@ -1620,6 +1749,7 @@ function bind(){
   document.getElementById('aGo').onclick=addTx;
   document.getElementById('rGo').onclick=addRec;
   document.getElementById('rFill').onclick=backfill;
+  document.getElementById('trendMode').onclick=()=>{ trendNorm=!trendNorm; renderTrend(); };
   document.getElementById('q').oninput=e=>{ q=e.target.value.trim(); lim=20; renderTx(); };
   document.getElementById('fType').onchange=e=>{ fType=e.target.value; lim=20; renderTx(); };
   document.getElementById('fCard').onchange=e=>{ fCard=e.target.value; lim=20; renderTx(); };
