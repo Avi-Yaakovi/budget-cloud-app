@@ -66,6 +66,41 @@ h2.ttl .sub{font-weight:400;color:var(--ink-3);font-size:11.5px;margin-right:6px
 .hero-num{display:block;font-family:var(--f-num);font-size:clamp(32px,10vw,44px);font-weight:700;letter-spacing:-1px;margin:2px 0 3px;}
 .hero-delta{font-size:11.5px;color:var(--ink-3);}
 .hero-delta b{font-family:var(--f-num);}
+/* "נעול ופתוח" — the month split into the part already committed and the part
+   still under the household's control. */
+.lock2{background:#20241F;color:#E8EAE4;border-radius:var(--r-lg);padding:16px;margin-bottom:10px;}
+.open2{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px;margin-bottom:12px;}
+.sp-h{display:flex;align-items:baseline;gap:8px;margin-bottom:2px;}
+.sp-k{flex:1;font-size:12px;font-weight:600;letter-spacing:.04em;}
+.lock2 .sp-k{opacity:.62;}
+.open2 .sp-k{color:var(--ink-3);}
+.sp-v{font-family:var(--f-num);font-size:21px;font-weight:600;}
+.sp-s{margin:0 0 12px;font-size:11.5px;line-height:1.55;}
+.lock2 .sp-s{opacity:.58;}
+.open2 .sp-s{color:var(--ink-3);}
+.sp-seg{display:flex;height:7px;border-radius:4px;overflow:hidden;gap:2px;margin-bottom:11px;}
+.sp-bar{height:9px;border-radius:5px;background:var(--line);overflow:hidden;margin-bottom:13px;}
+.sp-bar i{display:block;height:100%;border-radius:5px;}
+.sp-l{font-size:11.5px;line-height:1.95;}
+.lock2 .sp-l{opacity:.88;}
+.sp-r{display:flex;gap:10px;}
+.sp-r span:first-child{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sp-r b{font-family:var(--f-num);font-weight:500;}
+.open2 .sp-r{padding:7px 0;border-bottom:1px solid var(--line-2);font-size:12.5px;}
+.open2 .sp-r:last-child{border-bottom:0;}
+/* credit-report tracker */
+.tk{display:flex;align-items:center;gap:9px;padding:10px 0;border-bottom:1px solid var(--line-2);}
+.tk:last-child{border-bottom:0;}
+.tk-m{flex:1;min-width:0;}
+.tk-t{display:block;font-size:13.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tk-s{display:block;font-size:11px;color:var(--ink-3);margin-top:1px;}
+.tk-c{display:flex;gap:4px;}
+.tk-p{width:30px;text-align:center;font-size:9.5px;padding:3px 0;border-radius:var(--r-sm);background:var(--line-2);color:var(--ink-3);line-height:1.35;}
+.tk-p b{display:block;font-size:11px;font-weight:600;}
+.tk-p.ok{background:var(--pos-bg);color:var(--pos);}
+.tk-p.no{background:var(--neg-bg);color:var(--neg);}
+.tk-p.wait{background:var(--warn-bg);color:var(--warn);}
+.tk-a{font-size:11.5px;color:var(--accent);text-decoration:none;white-space:nowrap;padding:5px 7px;border:1px solid var(--line);border-radius:var(--r-sm);}
 .duo{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px;}
 .duo-i{border-radius:var(--r-md);padding:10px 8px;}
 .duo-i.p{background:var(--pos-bg);}
@@ -231,7 +266,9 @@ input.num{font-family:var(--f-num);}
           </div>
         </div>
 
+        <div id="splitBox"></div>
         <div id="gapNote"></div>
+        <div id="missNote"></div>
         <div id="fcNote"></div>
         <div id="bigNote"></div>
         <div id="watchNote"></div>
@@ -313,6 +350,12 @@ input.num{font-family:var(--f-num);}
               <button class="go ghost" id="impNo" type="button">ביטול</button>
             </div>
           </div>
+        </div>
+
+        <div class="card">
+          <h2 class="ttl">מעקב דוחות אשראי<span class="sub">מה כבר הועלה ומה חסר</span></h2>
+          <div class="list" id="track"></div>
+          <p class="blank" id="trackNo" style="display:none">הוסיפו כרטיס כדי להתחיל לעקוב</p>
         </div>
 
         <div class="card">
@@ -770,9 +813,9 @@ function msg(id,t){ const e=document.getElementById(id); e.textContent=t; e.styl
 
 /* ================= render ================= */
 function renderAll(){
-  renderMonth(); renderHero(); renderGap(); renderForecast(); renderBig(); renderWatch(); renderRemind(); renderTrend();
+  renderMonth(); renderHero(); renderLockOpen(); renderGap(); renderMissing(); renderForecast(); renderBig(); renderWatch(); renderRemind(); renderTrend();
   renderSplit(); renderByCard(); renderBudgets(); renderTx();
-  renderRec(); renderSubs(); renderHist(); renderCards(); renderCats(); fillCatSelects(); renderAllowed();
+  renderRec(); renderSubs(); renderTrack(); renderHist(); renderCards(); renderCats(); fillCatSelects(); renderAllowed();
 }
 
 function setTab(p){
@@ -802,6 +845,112 @@ function renderHero(){
     d.innerHTML=`הוצאתם <b style="color:${diff>=0?'var(--neg)':'var(--pos)'}">${money(diff)}</b> ${diff>=0?'יותר':'פחות'} מ${MONTHS[pm-1]} (${pct}%)`;
     d.style.display='block';
   } else d.style.display='none';
+}
+
+const ISSUERS={
+  'MAX':      {u:'https://www.max.co.il/login',                         n:'max.co.il'},
+  'כאל':      {u:'https://www.cal-online.co.il/self-service/alltransactions/', n:'cal-online.co.il'},
+  'ישראכרט':  {u:'https://digital.isracard.co.il/personalarea/Login/',   n:'isracard.co.il'}
+};
+function issuer(co){
+  const c=String(co||'');
+  for(const k in ISSUERS){ if(c.indexOf(k)!==-1) return ISSUERS[k]; }
+  return null;
+}
+/* A month counts as covered for a card if an import declared it, or if any
+   transaction from that card actually landed in it. */
+function covered(c4,k){
+  if((data.importHistory||[]).some(x=>x.cardLast4===c4&&(x.months||[]).indexOf(k)!==-1)) return true;
+  return data.transactions.some(t=>t.cardLast4===c4&&mk(t.date)===k);
+}
+function lastImp(c4){
+  const xs=(data.importHistory||[]).filter(x=>x.cardLast4===c4&&x.at);
+  return xs.length?xs.map(x=>x.at).sort().pop():null;
+}
+/* Cards are listed with the last three months so a gap is visible as a gap,
+   not as a number that happens to look small. */
+function trackMonths(){
+  const now=realM(), out=[];
+  for(let i=2;i>=0;i--) out.push(shiftM(now,-i));
+  return out;
+}
+function renderTrack(){
+  const box=document.getElementById('track'), no=document.getElementById('trackNo');
+  box.innerHTML='';
+  const cards=(data.cards||[]).slice();
+  if(!cards.length){ no.style.display='block'; return; }
+  no.style.display='none';
+  const ms=trackMonths(), now=realM();
+  cards.forEach(c=>{
+    const lb=(data.cardLabels||{})[c.last4]||c.label||'', iss=issuer(c.company);
+    const li=lastImp(c.last4);
+    const d=document.createElement('div'); d.className='tk';
+    const chips=ms.map(k=>{
+      const ok=covered(c.last4,k);
+      const cls=ok?'ok':(k===now?'wait':'no');
+      return `<span class="tk-p ${cls}" title="${esc(mLabel(k))}"><b>${ok?'✓':(k===now?'·':'✕')}</b>${esc(MONTHS[Number(k.slice(5))-1].slice(0,3))}</span>`;
+    }).join('');
+    d.innerHTML=`<div class="tk-m"><span class="tk-t">${esc(lb||('····'+c.last4))}</span>`
+      +`<span class="tk-s">${esc(c.company||'לא ידוע')} · ····${esc(c.last4)}${li?' · יובא '+esc(dLabel(li)):''}</span></div>`
+      +`<div class="tk-c">${chips}</div>`
+      +(iss?`<a class="tk-a" href="${iss.u}" target="_blank" rel="noopener noreferrer">הורדה ↗</a>`:'');
+    box.appendChild(d);
+  });
+}
+/* Surfaces a missing report while it still matters — the previous month is the
+   one that should be complete, the current one is merely in progress. */
+function renderMissing(){
+  const el=document.getElementById('missNote'); el.innerHTML='';
+  const prev=shiftM(realM(),-1);
+  const gaps=(data.cards||[]).filter(c=>!covered(c.last4,prev));
+  if(!gaps.length) return;
+  el.innerHTML=`<div class="note warn"><div class="note-body"><b>חסרים דוחות ל${esc(mLabel(prev))}</b><br>`
+    +gaps.map(c=>{
+      const lb=(data.cardLabels||{})[c.last4]||c.label||('····'+c.last4), iss=issuer(c.company);
+      return esc(lb)+' · '+esc(c.company||'')+(iss?` <a href="${iss.u}" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">${esc(iss.n)} ↗</a>`:'');
+    }).join('<br>')
+    +`</div></div>`;
+}
+
+/* "נעול ופתוח": the committed mass and the part still open to decisions.
+   Not to be confused with renderSplit(), which draws the category breakdown. */
+function renderLockOpen(){
+  const el=document.getElementById('splitBox'); el.innerHTML='';
+  const tx=mTx(curM);
+  const lockRows={}, openRows={};
+  let lock=0, open=0;
+  tx.forEach(t=>{
+    if(t.type!=='expense') return;
+    if(t.recurringId){ lock+=t.amount; lockRows[t.note||t.category]=(lockRows[t.note||t.category]||0)+t.amount; }
+    else { open+=t.amount; openRows[t.category]=(openRows[t.category]||0)+t.amount; }
+  });
+  const total=lock+open;
+  if(!total) return;
+  const inc=tx.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const pool=inc-lock;
+  const lockPct=Math.round(lock/total*100), openPct=100-lockPct;
+  const top=o=>Object.keys(o).sort((a,b)=>o[b]-o[a]).slice(0,4);
+  const SHADE=['#C8CCC2','#8A9184','#5C6357','#3E443B'];
+  const lk=top(lockRows), op=top(openRows);
+  const segs=lk.map((k,i)=>`<div style="width:${Math.max(1,Math.round(lockRows[k]/lock*100))}%;background:${SHADE[i]}"></div>`).join('');
+  const usedPct=pool>0?Math.min(100,Math.round(open/pool*100)):(open>0?100:0);
+  const col=pool>0&&open>pool?'var(--neg)':(usedPct>=80?'var(--warn)':'var(--pos)');
+
+  let s=`<div class="lock2"><div class="sp-h"><span class="sp-k">נעול · ${lockPct}%</span><span class="sp-v">${money(lock)}</span></div>`
+    +`<p class="sp-s">כבר יצא או מובטח לצאת. אין מה להחליט כאן החודש.</p>`
+    +(lock?`<div class="sp-seg">${segs}</div>`:'')
+    +`<div class="sp-l">`+lk.map(k=>`<div class="sp-r"><span>${esc(k)}</span><b>${money(lockRows[k])}</b></div>`).join('')+`</div></div>`;
+
+  s+=`<div class="open2"><div class="sp-h"><span class="sp-k">פתוח · ${openPct}%</span><span class="sp-v">${money(open)}</span></div>`
+    +`<p class="sp-s">${pool>0
+        ? (open>pool
+            ? `מתוך ${money(pool)} שנשארו. חריגה של ${money(open-pool)}.`
+            : `מתוך ${money(pool)} שנשארו. פנוי ${money(pool-open)}.`)
+        : 'ההוצאות הקבועות כבר גדולות מההכנסה החודש.'}</p>`
+    +`<div class="sp-bar"><i style="width:${usedPct}%;background:${col}"></i></div>`
+    +op.map(k=>`<div class="sp-r"><span>${esc(k)}</span><b>${money(openRows[k])}</b></div>`).join('')
+    +`</div>`;
+  el.innerHTML=s;
 }
 
 /* The balance alone hides the real constraint: how much of the month was already
