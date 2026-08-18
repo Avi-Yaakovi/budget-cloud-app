@@ -354,6 +354,7 @@ input.num{font-family:var(--f-num);}
 
         <div class="card">
           <h2 class="ttl">מעקב דוחות אשראי<span class="sub">מה כבר הועלה ומה חסר</span></h2>
+          <p class="hint">✓ נתונים עד סוף החודש · מספר = היום האחרון שהדוח מגיע אליו · ✕ לא הועלה כלל.</p>
           <div class="list" id="track"></div>
           <p class="blank" id="trackNo" style="display:none">הוסיפו כרטיס כדי להתחיל לעקוב</p>
         </div>
@@ -857,12 +858,29 @@ function issuer(co){
   for(const k in ISSUERS){ if(c.indexOf(k)!==-1) return ISSUERS[k]; }
   return null;
 }
-/* A month counts as covered for a card if an import declared it, or if any
-   transaction from that card actually landed in it. */
-function covered(c4,k){
-  if((data.importHistory||[]).some(x=>x.cardLast4===c4&&(x.months||[]).indexOf(k)!==-1)) return true;
-  return data.transactions.some(t=>t.cardLast4===c4&&mk(t.date)===k);
+/* How far into a month the data for a card actually reaches. A report pulled on
+   the 13th does not contain the rest of the month, so "there is data" is not the
+   same as "the month is covered" — the tick used to claim the latter. */
+function reach(c4,k){
+  const rel=(data.importHistory||[]).filter(x=>x.cardLast4===c4&&(x.months||[]).indexOf(k)!==-1);
+  const dated=rel.filter(x=>x.at).map(x=>x.at).sort();
+  if(dated.length) return {d:dated[dated.length-1],src:'import'};
+  /* Older history rows carry no date. We cannot know how far they reached, and
+     guessing from the last purchase would nag about months that are actually
+     fine — so an undated import counts as complete. */
+  if(rel.length) return {d:null,src:'undated'};
+  const ds=data.transactions.filter(t=>t.cardLast4===c4&&mk(t.date)===k).map(t=>t.date).sort();
+  if(ds.length) return {d:ds[ds.length-1],src:'tx'};
+  return null;
 }
+/* 'full' only when the data is known to reach the final day of the month. */
+function cover(c4,k){
+  const r=reach(c4,k);
+  if(!r) return {s:'none'};
+  if(r.src==='undated') return {s:'full'};
+  return r.d>=lastDay(k) ? {s:'full',to:r.d} : {s:'part',to:r.d};
+}
+function covered(c4,k){ return cover(c4,k).s!=='none'; }
 function lastImp(c4){
   const xs=(data.importHistory||[]).filter(x=>x.cardLast4===c4&&x.at);
   return xs.length?xs.map(x=>x.at).sort().pop():null;
@@ -886,9 +904,12 @@ function renderTrack(){
     const li=lastImp(c.last4);
     const d=document.createElement('div'); d.className='tk';
     const chips=ms.map(k=>{
-      const ok=covered(c.last4,k);
-      const cls=ok?'ok':(k===now?'wait':'no');
-      return `<span class="tk-p ${cls}" title="${esc(mLabel(k))}"><b>${ok?'✓':(k===now?'·':'✕')}</b>${esc(MONTHS[Number(k.slice(5))-1].slice(0,3))}</span>`;
+      const cv=cover(c.last4,k), live=(k===now);
+      let cls,face,tip;
+      if(cv.s==='full'){ cls='ok'; face='✓'; tip='חודש מלא'; }
+      else if(cv.s==='none'){ cls=live?'':'no'; face=live?'·':'✕'; tip=live?'עוד לא הועלה':'לא הועלה'; }
+      else { cls=live?'':'wait'; face=String(Number(cv.to.slice(8))); tip='נתונים עד '+dLabel(cv.to)+(live?'':' — הדוח נמשך לפני סוף החודש'); }
+      return `<span class="tk-p ${cls}" title="${esc(mLabel(k)+' · '+tip)}"><b>${face}</b>${esc(MONTHS[Number(k.slice(5))-1].slice(0,3))}</span>`;
     }).join('');
     d.innerHTML=`<div class="tk-m"><span class="tk-t">${esc(lb||('····'+c.last4))}</span>`
       +`<span class="tk-s">${esc(c.company||'לא ידוע')} · ····${esc(c.last4)}${li?' · יובא '+esc(dLabel(li)):''}</span></div>`
@@ -902,12 +923,13 @@ function renderTrack(){
 function renderMissing(){
   const el=document.getElementById('missNote'); el.innerHTML='';
   const prev=shiftM(realM(),-1);
-  const gaps=(data.cards||[]).filter(c=>!covered(c.last4,prev));
+  const gaps=(data.cards||[]).map(c=>({c,cv:cover(c.last4,prev)})).filter(x=>x.cv.s!=='full');
   if(!gaps.length) return;
-  el.innerHTML=`<div class="note warn"><div class="note-body"><b>חסרים דוחות ל${esc(mLabel(prev))}</b><br>`
-    +gaps.map(c=>{
+  el.innerHTML=`<div class="note warn"><div class="note-body"><b>${esc(mLabel(prev))} עדיין לא מכוסה במלואו</b><br>`
+    +gaps.map(({c,cv})=>{
       const lb=(data.cardLabels||{})[c.last4]||c.label||('····'+c.last4), iss=issuer(c.company);
-      return esc(lb)+' · '+esc(c.company||'')+(iss?` <a href="${iss.u}" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">${esc(iss.n)} ↗</a>`:'');
+      const st=cv.s==='none'?'לא הועלה':('נתונים עד '+dLabel(cv.to)+' בלבד');
+      return esc(lb)+' · '+esc(st)+(iss?` <a href="${iss.u}" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">${esc(iss.n)} ↗</a>`:'');
     }).join('<br>')
     +`</div></div>`;
 }
