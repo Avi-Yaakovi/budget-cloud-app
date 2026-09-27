@@ -4,6 +4,30 @@ Versions are assigned per release, not per commit. `APP_VERSION` in
 `index.html` must match the newest entry here. Versions before 1.5 were
 assigned retroactively from the git history.
 
+## 2.0.0 — 2026-08-18
+
+The single file is gone. Same app, same behaviour, no build step — just real
+files with real boundaries.
+
+- `index.html` is markup only, down from about 100KB to 15KB. It loads four
+  stylesheets and `app/main.js` as an ES module.
+- The stylesheet is split into `styles/tokens.css`, `base.css`,
+  `components.css` and `panels.css`.
+- The script is split into fourteen modules under `app/`, each with a header
+  saying what it owns. The boundaries follow what the code already did:
+  storage, classification, coverage, import, recurring, maintenance, chat,
+  backup, and one module per panel.
+- Shared mutable state moved onto a single exported object, `S`. ES module
+  imports are read-only bindings, so `export let data` could never have been
+  reassigned from another module.
+- The suite imports the modules directly instead of cutting the script block
+  out of the HTML, and grew from 68 assertions to 73.
+- `APP_VERSION` moved to `app/config.js`.
+
+No behaviour changed. The rewrite was mechanical: the module split was done by
+slicing on the existing section boundaries, and the rename of shared state was
+done with an AST pass rather than by hand, so nothing was retyped.
+
 ## 1.8.0 — 2026-08-18
 
 - Credit-report tracking distinguishes a complete month from a report pulled

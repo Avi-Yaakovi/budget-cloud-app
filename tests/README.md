@@ -1,25 +1,22 @@
 # Tests
 
 ```
-node tests/run.cjs
+npm test
 ```
 
 Exit code 0 means everything passed. Run it before and after every change.
 
 ## Why it looks like this
 
-The app is a single `index.html` with no build step and no module boundaries,
-so there is nothing to import. `harness.cjs` cuts the last `<script>` block out
-of the file, stubs a DOM, and `run.cjs` evals the app source and the assertions
-as one string.
+The app is plain ES modules with no bundler, so the suite imports them
+directly. The order matters: `stubDom()` and `pinClock()` must run **before**
+the first `import()`, because some modules read `localStorage` and the clock
+while they evaluate. That is why the imports are dynamic `await import(...)`
+calls rather than static ones at the top of the file.
 
-That last part matters: the app's top-level `const` and `let` bindings are not
-reachable from an outer scope, so test code evaluated separately cannot see
-`guessCat`, `data`, `curM` or anything else. Both halves must be evaluated
-together. If you split them, everything fails with `ReferenceError`.
-
-The files are `.cjs` because `package.json` sets `"type": "module"` for the
-Vercel functions, and the harness needs `require`.
+Shared state lives on the `S` object from `app/state.js`. Set `S.data` and
+`S.curM` before calling a render function; never destructure `S`, or the test
+stops seeing later updates.
 
 ## The clock is pinned
 
@@ -49,7 +46,7 @@ It is small but every part of it is load-bearing:
 - **Recurring rent and salary**, so the locked/open split has both sides.
 - **A refund** as a negative expense, and a merchant with a city prefix.
 
-Changing an amount will move the percentages asserted in `run.cjs`. Recompute
+Changing an amount will move the percentages asserted in `run.js`. Recompute
 rather than adjusting the expectation until it goes green.
 
 ## Adding a test

@@ -4,18 +4,43 @@ A Hebrew household budget app. Two people use it daily with real money. Treat
 every change as production.
 
 Live: https://budget-cloud-app.vercel.app · current version: see `APP_VERSION`
-in `index.html`, history in `CHANGELOG.md`.
+in `app/config.js`, history in `CHANGELOG.md`.
 
 ## Before you touch anything
 
-1. `node tests/run.cjs` — 68 assertions, must pass before and after your change.
+1. `npm test` — 73 assertions, must pass before and after your change.
 2. Read `.claude/skills/design-system/SKILL.md` before any UI work.
 3. Never paste a credential into a chat. See "Secrets" below.
 
 ## Shape of the thing
 
+Plain ES modules loaded straight by the browser. There is still no build step,
+no bundler and no framework — `index.html` is markup only and pulls in
+`app/main.js` as a module.
+
 ```
-index.html    the entire app — HTML + CSS + JS, ~100KB, no build step
+index.html               markup only
+styles/tokens.css        colours, radii, fonts — nothing else may hardcode these
+styles/base.css          page frame: bars, layout, tabs, lock screen
+styles/components.css    notes, bar rows, forms, list rows, inline edit
+styles/panels.css        hero and lock/open, trend chart, import preview, chat
+
+app/main.js              entry point: wires controls, then boots
+app/config.js            category lists, palette, month names, APP_VERSION
+app/state.js             the shared mutable state object `S`, plus derived reads
+app/format.js            dates, money, escaping
+app/classify.js          merchant name to category
+app/storage.js           load/save, merge, tombstones, the read-before-write guard
+app/shell.js             panel switching, month stepper, renderAll()
+app/coverage.js          credit-report coverage and issuer links
+app/recurring.js         standing transactions
+app/importer.js          reading CAL / MAX / Isracard exports
+app/maintenance.js       repair tools and the category editor
+app/chat.js              the assistant, and the context it is given
+app/backup.js            download, restore, reset
+app/views/overview.js    the overview panel
+app/views/transactions.js the transactions panel
+
 api/data.js   read/write the budget blob in Redis, with a write guard
 api/auth.js   Google sign-in, allowed-email list
 api/chat.js   proxy to the Anthropic API (needs ANTHROPIC_API_KEY)
@@ -24,6 +49,15 @@ api/_redis.js one Redis client per lambda, with retry
 vercel.json   Cross-Origin-Opener-Policy, required by the Google popup
 tests/        regression suite + synthetic fixture
 ```
+
+**Shared state.** ES module imports are read-only bindings, so the mutable
+state lives on one exported object: `import { S } from './state.js'`, then
+`S.data`, `S.curM`, `S.loaded`. Never destructure it — `const { data } = S`
+takes a copy of the reference and silently stops seeing updates.
+
+**Cycles are fine.** `storage.js` calls `renderAll()` from `shell.js`, which
+imports most other modules. ES modules handle that as long as nothing calls
+across the cycle while modules are still evaluating, and nothing does.
 
 Dependencies: `ioredis`, `google-auth-library`. From CDN: SheetJS (reads the
 credit-card files), Google Identity Services.
@@ -84,11 +118,10 @@ afterwards with the Vercel tools (`list_deployments`, `get_runtime_logs`,
 `web_fetch_vercel_url`) rather than assuming. Runtime logs expire after roughly
 an hour, so read them while they exist.
 
-**Test.** `node tests/run.cjs`. The suite cuts the `<script>` block out of
-`index.html`, stubs a DOM, pins the clock to 2026-08-18 and evals the app and
-the assertions **in the same scope** — the app's top-level `const`/`let` are not
-reachable any other way. `tests/fixture.json` is synthetic; it contains no real
-financial data and must stay that way, because the repository is public.
+**Test.** `npm test`. The suite stubs a DOM and pins the clock to 2026-08-18
+**before** importing any module, because some read `localStorage` as they
+evaluate. `tests/fixture.json` is synthetic; it contains no real financial data
+and must stay that way, because the repository is public.
 
 **Add a render function.** Name it `render*`, give it no arguments, have it
 rebuild its container from `data`, register it in `renderAll()` in visual order
@@ -96,11 +129,12 @@ and wire events in `bind()`. Guard against an empty account everywhere —
 `(data.cards||[])` — since `renderAll()` has no per-section try/catch and one
 throw blanks the screen.
 
-**Watch for name collisions.** Everything lives in one scope. `renderSplit()`
-already means the category breakdown; the lock/open block had to become
-`renderLockOpen()` after it silently clobbered it. Grep before naming.
+**Watch for name collisions.** They no longer crash silently the way they did
+in the single-scope build — where `renderLockOpen()` had to be renamed after it
+clobbered the existing `renderSplit()` — but two modules exporting the same name
+is still confusing. Grep before naming.
 
-**Release.** Bump `APP_VERSION` in `index.html` and add a `CHANGELOG.md` entry
+**Release.** Bump `APP_VERSION` in `app/config.js` and add a `CHANGELOG.md` entry
 in the same commit.
 
 ## Secrets
@@ -123,7 +157,7 @@ Nothing in a chat session needs it. Do not ask for it.
 - `api/chat.js` needs `ANTHROPIC_API_KEY` in Vercel.
 - There is no CSV export, only the JSON backup.
 - Everything lives under one Redis key. Fine for years, not forever.
-- `SHIFTED` in `index.html` is a finished one-shot migration that repaired
+- `SHIFTED` in `app/maintenance.js` is a finished one-shot migration that repaired
   twelve mis-dated rows. It is idempotent and safe to delete once you are sure
   the repair ran.
 

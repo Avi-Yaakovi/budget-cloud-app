@@ -1,0 +1,60 @@
+/* Reusable pieces: notes, bar rows, forms, list rows, inline edit. */
+
+/* ---------- notices ---------- */
+.note{border-radius:var(--r-md);padding:12px 14px;margin-bottom:12px;font-size:12.5px;line-height:1.6;display:flex;gap:10px;align-items:flex-start;}
+.note.warn{background:var(--warn-bg);border:1px solid #EFDFC0;}
+.note.info{background:var(--surface);border:1px solid var(--line);}
+.note-body{flex:1;}
+.note b{font-weight:700;}
+.note .n{font-family:var(--f-num);font-weight:700;}
+.note-act{flex:0 0 auto;border:none;background:var(--warn);color:#fff;border-radius:var(--r-sm);padding:6px 11px;font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;}
+.note-x{flex:0 0 auto;background:none;border:none;color:var(--ink-3);font-size:13px;cursor:pointer;padding:0 2px;}
+
+/* ---------- bars ---------- */
+.brow{margin-bottom:11px;}
+.brow:last-child{margin-bottom:0;}
+.btop{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;margin-bottom:5px;}
+.btop .r{color:var(--ink-2);font-family:var(--f-num);font-size:11.5px;white-space:nowrap;}
+.btrack{height:6px;background:var(--line-2);border-radius:3px;overflow:hidden;}
+.bfill{height:100%;border-radius:3px;}
+.blink{background:none;border:none;color:var(--accent);font-size:11px;text-decoration:underline;cursor:pointer;font-family:inherit;padding:0;}
+.bedit{color:var(--ink-3);font-size:11.5px;text-decoration:underline;cursor:pointer;}
+.bnum{width:96px;padding:4px 7px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:16px;font-family:var(--f-num);}
+
+/* ---------- forms ---------- */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:9px;}
+.wide{grid-column:1 / -1;}
+input,select,textarea{font-family:inherit;font-size:16px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:11px;width:100%;}
+input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;}
+input.num{font-family:var(--f-num);}
+.seg{display:flex;gap:6px;margin-bottom:11px;}
+.seg button{flex:1;padding:9px 0;border:1px solid var(--line);background:var(--surface);color:var(--ink-3);border-radius:var(--r-md);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;}
+.seg button.on[data-k="expense"]{background:var(--neg-bg);color:var(--neg);border-color:#EED9D8;}
+.seg button.on[data-k="income"]{background:var(--pos-bg);color:var(--pos);border-color:#D3E7DE;}
+.seg button.on[data-k="refund"]{background:var(--warn-bg);color:var(--warn);border-color:#EFDFC0;}
+.go{width:100%;padding:12px 0;border:none;border-radius:var(--r-md);background:var(--ink);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;}
+.go:active{opacity:.86;}
+.go.ghost{background:var(--surface);border:1px solid var(--line);color:var(--ink-2);}
+.go.sm{padding:9px 0;font-size:13.5px;}
+.txt{background:none;border:none;color:var(--ink-3);font-size:12px;text-decoration:underline;cursor:pointer;font-family:inherit;}
+
+/* ---------- rows ---------- */
+.list{display:flex;flex-direction:column;}
+.r{display:flex;align-items:center;gap:8px;padding:11px 0;border-bottom:1px solid var(--line-2);}
+.r:last-child{border-bottom:none;}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.r-mid{flex:1;min-width:0;display:flex;flex-direction:column;}
+.r-t{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.r-s{font-size:11px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.r-v{font-family:var(--f-num);font-weight:700;font-size:14px;white-space:nowrap;}
+.r-v.p{color:var(--pos);}
+.r-v.n{color:var(--neg);}
+.mini{background:none;border:none;color:var(--ink-3);font-size:12px;cursor:pointer;padding:5px 3px;}
+.mini:active{color:var(--ink);}
+.tag{font-size:9.5px;color:var(--ink-3);border:1px solid var(--line);border-radius:7px;padding:1px 5px;margin-right:5px;font-weight:400;}
+
+/* ---------- edit inline ---------- */
+.ed{padding:12px 0;border-bottom:1px solid var(--line-2);}
+.ed-a{display:flex;gap:8px;margin-top:4px;}
+.ed-a .go{flex:1;}
+.ed-a .go.ghost{flex:0 0 auto;padding-left:18px;padding-right:18px;}

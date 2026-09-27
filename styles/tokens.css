@@ -1,0 +1,30 @@
+/* Design tokens. Nothing else may hardcode a colour, radius or font.
+   .claude/skills/design-system/SKILL.md explains what each one means. */
+
+:root{
+  --bg:#F2F4F1;
+  --surface:#FFFFFF;
+  --ink:#161A18;
+  --ink-2:#4A544D;
+  --ink-3:#69716C;
+  --line:#E4E8E3;
+  --line-2:#F0F2EF;
+  --pos:#15654A;
+  --pos-bg:#E6F1EC;
+  --neg:#9A3B38;
+  --neg-bg:#F8E9E8;
+  --warn:#936517;
+  --warn-bg:#FBF2E1;
+  --accent:#2C3E4F;
+  --r-lg:18px;
+  --r-md:12px;
+  --r-sm:9px;
+  --f-body:'Heebo',-apple-system,"Segoe UI",Arial,sans-serif;
+  --f-disp:'Frank Ruhl Libre',Georgia,serif;
+  --f-num:ui-monospace,Consolas,"SF Mono","Courier New",monospace;
+  --tabh:62px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+.shell{max-width:520px;margin:0 auto;min-height:100vh;}
