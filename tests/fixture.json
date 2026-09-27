@@ -1,0 +1,342 @@
+{
+  "_note": "Synthetic data. Structurally identical to a real account but contains no real financial information. Every property the suite relies on is deliberate — read tests/README.md before editing.",
+  "transactions": [
+    {
+      "id": "t-may-01",
+      "type": "expense",
+      "amount": 310.0,
+      "category": "מזון",
+      "note": "סופר הדוגמה",
+      "date": "2026-05-02",
+      "cardLast4": "1111"
+    },
+    {
+      "id": "t-may-02",
+      "type": "expense",
+      "amount": 64.0,
+      "category": "מזון",
+      "note": "AMSTERDAM ~NETFLIX.COM",
+      "date": "2026-05-03",
+      "cardLast4": "1111"
+    },
+    {
+      "id": "t-may-03",
+      "type": "expense",
+      "amount": 210.0,
+      "category": "בריאות",
+      "note": "סופר פארם סניף",
+      "date": "2026-05-10",
+      "cardLast4": "2222"
+    },
+    {
+      "id": "t-may-04",
+      "type": "expense",
+      "amount": -45.0,
+      "category": "מזון",
+      "note": "זיכוי סופר הדוגמה",
+      "date": "2026-05-12",
+      "cardLast4": "1111"
+    },
+    {
+      "id": "t-may-05",
+      "type": "expense",
+      "amount": 85.0,
+      "category": "חשבונות ותקשורת",
+      "note": "טריפל סי",
+      "date": "2026-05-01",
+      "cardLast4": "1111"
+    },
+    {
+      "id": "t-may-06",
+      "type": "expense",
+      "amount": 300.0,
+      "category": "אחר",
+      "note": "חיוב שזז",
+      "date": "2026-05-31",
+      "cardLast4": "1111"
+    },
+    {
+      "id": "t-jun-01",
+      "type": "expense",
+      "amount": 48.0,
+      "category": "מזון",
+      "note": "סופר הדוגמה",
+      "date": "2026-06-04",
+      "cardLast4": "1111"
+    },
+    {
+      "id": "t-jun-02",
+      "type": "expense",
+      "amount": 64.0,
+      "category": "מנויים",
+      "note": "NETFLIX.COM",
+      "date": "2026-06-03",
+      "cardLast4": "1111"
+    },
+    {
+      "id": "t-jun-03",
+      "type": "expense",
+      "amount": 933.0,
+      "category": "ארנונה ורשות מקומית",
+      "note": "עיריית הדוגמה",
+      "date": "2026-06-07",
+      "cardLast4": "2222"
+    },
+    {
+      "id": "t-jun-04",
+      "type": "expense",
+      "amount": 85.0,
+      "category": "חשבונות ותקשורת",
+      "note": "טריפל סי",
+      "date": "2026-06-01",
+      "cardLast4": "1111"
+    },
+    {
+      "id": "t-jun-05",
+      "type": "expense",
+      "amount": 150.0,
+      "category": "אחר",
+      "note": "חיוב שזז",
+      "date": "2026-06-30",
+      "cardLast4": "2222"
+    },
+    {
+      "id": "t-jun-rec-a",
+      "type": "expense",
+      "amount": 5000,
+      "category": "דיור",
+      "note": "שכר דירה",
+      "date": "2026-06-01",
+      "recurringId": "r-rent"
+    },
+    {
+      "id": "t-jun-rec-b",
+      "type": "income",
+      "amount": 18000,
+      "category": "משכורת",
+      "note": "משכורת",
+      "date": "2026-06-10",
+      "recurringId": "r-salary"
+    },
+    {
+      "id": "t-jul-01",
+      "type": "expense",
+      "amount": 262.0,
+      "category": "מזון",
+      "note": "סופר הדוגמה",
+      "date": "2026-07-05",
+      "cardLast4": "1111"
+    },
+    {
+      "id": "t-jul-02",
+      "type": "expense",
+      "amount": 85.0,
+      "category": "חשבונות ותקשורת",
+      "note": "טריפל סי",
+      "date": "2026-07-01",
+      "cardLast4": "1111"
+    },
+    {
+      "id": "t-jul-03",
+      "type": "expense",
+      "amount": 1400.0,
+      "category": "אחר",
+      "note": "רכישה חד פעמית גדולה",
+      "date": "2026-07-14",
+      "cardLast4": "2222"
+    },
+    {
+      "id": "t-jul-04",
+      "type": "expense",
+      "amount": 76.0,
+      "category": "תחבורה",
+      "note": "פנגו חניה",
+      "date": "2026-07-20",
+      "cardLast4": "2222"
+    },
+    {
+      "id": "t-jul-rec-a",
+      "type": "expense",
+      "amount": 5000,
+      "category": "דיור",
+      "note": "שכר דירה",
+      "date": "2026-07-01",
+      "recurringId": "r-rent"
+    },
+    {
+      "id": "t-jul-rec-b",
+      "type": "income",
+      "amount": 18000,
+      "category": "משכורת",
+      "note": "משכורת",
+      "date": "2026-07-10",
+      "recurringId": "r-salary"
+    },
+    {
+      "id": "t-aug-01",
+      "type": "expense",
+      "amount": 61.0,
+      "category": "מזון",
+      "note": "סופר הדוגמה",
+      "date": "2026-08-03",
+      "cardLast4": "1111"
+    },
+    {
+      "id": "t-aug-02",
+      "type": "expense",
+      "amount": 85.0,
+      "category": "חשבונות ותקשורת",
+      "note": "טריפל סי",
+      "date": "2026-08-01",
+      "cardLast4": "1111"
+    },
+    {
+      "id": "t-aug-03",
+      "type": "expense",
+      "amount": 189.0,
+      "category": "מזון",
+      "note": "סופר הדוגמה",
+      "date": "2026-08-09",
+      "cardLast4": "2222"
+    },
+    {
+      "id": "t-aug-rec-a",
+      "type": "expense",
+      "amount": 5000,
+      "category": "דיור",
+      "note": "שכר דירה",
+      "date": "2026-08-01",
+      "recurringId": "r-rent"
+    },
+    {
+      "id": "t-aug-rec-b",
+      "type": "income",
+      "amount": 18000,
+      "category": "משכורת",
+      "note": "משכורת",
+      "date": "2026-08-10",
+      "recurringId": "r-salary"
+    },
+    {
+      "id": "t-jul-05",
+      "type": "expense",
+      "amount": 74.0,
+      "category": "מזון",
+      "note": "סופר הדוגמה",
+      "date": "2026-07-25",
+      "cardLast4": "1111"
+    },
+    {
+      "id": "t-jun-06",
+      "type": "expense",
+      "amount": 121.0,
+      "category": "מזון",
+      "note": "סופר הדוגמה",
+      "date": "2026-06-18",
+      "cardLast4": "1111"
+    }
+  ],
+  "budgets": {
+    "מזון": 1500
+  },
+  "recurring": [
+    {
+      "id": "r-rent",
+      "type": "expense",
+      "amount": 5000,
+      "category": "דיור",
+      "note": "שכר דירה",
+      "day": 1
+    },
+    {
+      "id": "r-salary",
+      "type": "income",
+      "amount": 18000,
+      "category": "משכורת",
+      "note": "משכורת",
+      "day": 10
+    }
+  ],
+  "cardLabels": {
+    "1111": "כרטיס א",
+    "2222": "כרטיס ב"
+  },
+  "importHistory": [
+    {
+      "id": "h-5",
+      "file": "aug.xlsx",
+      "company": "כאל",
+      "cardLast4": "1111",
+      "cardLabel": "כרטיס א",
+      "months": [
+        "2026-08"
+      ],
+      "count": 2,
+      "at": "2026-08-13"
+    },
+    {
+      "id": "h-4",
+      "file": "aug.xlsx",
+      "company": "MAX",
+      "cardLast4": "2222",
+      "cardLabel": "כרטיס ב",
+      "months": [
+        "2026-08"
+      ],
+      "count": 1,
+      "at": "2026-08-13"
+    },
+    {
+      "id": "h-3",
+      "file": "jul.xlsx",
+      "company": "כאל",
+      "cardLast4": "1111",
+      "cardLabel": "כרטיס א",
+      "months": [
+        "2026-07"
+      ],
+      "count": 2,
+      "at": "2026-08-02"
+    },
+    {
+      "id": "h-2",
+      "file": "jul.xlsx",
+      "company": "MAX",
+      "cardLast4": "2222",
+      "cardLabel": "כרטיס ב",
+      "months": [
+        "2026-06",
+        "2026-07"
+      ],
+      "count": 4,
+      "at": "2026-08-02"
+    },
+    {
+      "id": "h-1",
+      "file": "legacy.xlsx",
+      "company": "כאל",
+      "cardLast4": "1111",
+      "cardLabel": "",
+      "months": [
+        "2026-05",
+        "2026-06"
+      ],
+      "count": 8
+    }
+  ],
+  "uploadReminderDismissed": {},
+  "cards": [
+    {
+      "last4": "1111",
+      "company": "כאל",
+      "label": "כרטיס א"
+    },
+    {
+      "last4": "2222",
+      "company": "MAX",
+      "label": "כרטיס ב"
+    }
+  ],
+  "customCats": [],
+  "deleted": []
+}

@@ -467,6 +467,11 @@ input.num{font-family:var(--f-num);}
         </div>
 
         <div class="card">
+          <h2 class="ttl">גרסה</h2>
+          <p class="hint" id="verLine" style="margin:0"></p>
+        </div>
+
+        <div class="card">
           <h2 class="ttl">גיבוי ושחזור</h2>
           <p class="hint">הנתונים בענן. כדאי להוריד גיבוי מדי פעם — הקובץ נשמר אצלכם וניתן לשחזור מלא ממנו.</p>
           <div class="ed-a">
@@ -498,6 +503,9 @@ input.num{font-family:var(--f-num);}
 const BASE_EXP = ['מזון','דיור','ארנונה ורשות מקומית','תחבורה','בריאות','ביטוח','חינוך','פנאי ובילויים','ביגוד','חשבונות ותקשורת','מנויים','חיסכון','אחר'];
 const INC_CATS = ['משכורת','עבודה עצמאית','מתנות','החזר מס','אחר'];
 const COLORS = ['#15654A','#9A3B38','#A8741A','#2C3E4F','#6B4E8C','#2F7B7B','#96562F','#4F7A2E','#7D4F5E','#3B6EA5','#8A6D3B','#5B7C6E','#8C8C8C'];
+/* Bumped by hand on every release; CHANGELOG.md explains each one. There is no
+   build step, so this is the only way to tell which build is actually live. */
+const APP_VERSION = '1.8.0';
 const MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 
 /* order matters: first match wins */
@@ -1948,6 +1956,7 @@ function bind(){
 
 function init(){
   curM=realM();
+  document.getElementById('verLine').textContent='תקציב הבית · גרסה '+APP_VERSION;
   document.getElementById('aDate').value=today();
   fillCatSelects();
   bind();
